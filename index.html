@@ -1,0 +1,1505 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>豆腐女孩 Tofu Girl</title>
+<style>
+  :root{
+    --pink:#ffd6e6;
+    --pink-deep:#ff9dc0;
+    --lavender:#e6e0ff;
+    --butter:#fff3c9;
+    --mint:#d8f5e6;
+    --ink:#5b4a55;
+    --card:#fffaf6;
+    --shadow:rgba(120,90,110,.18);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0;padding:0;height:100%;overflow:hidden;
+    font-family:'Segoe UI Rounded','Arial Rounded MT Bold','Baloo 2','PingFang TC','Microsoft JhengHei',sans-serif;
+    background:#f6d9e6;
+    touch-action:none;
+    user-select:none;
+  }
+  #stage{
+    position:fixed;inset:0;
+    display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(180deg,#ffe3ef 0%,#f3e3ff 55%,#e4eeff 100%);
+  }
+  #frame{
+    position:relative;
+    width:min(96vw, 480px);
+    height:min(96vh, 900px);
+    aspect-ratio:390/780;
+    max-height:96vh;
+    max-width:calc(96vh * 390 / 780);
+    border-radius:28px;
+    overflow:hidden;
+    box-shadow:0 20px 50px var(--shadow), 0 2px 0 rgba(255,255,255,.6) inset;
+    background:#fff;
+  }
+  canvas{
+    position:absolute;inset:0;
+    width:100%;height:100%;
+    display:block;
+  }
+
+  /* ---------- HUD ---------- */
+  #hud{
+    position:absolute; top:0; left:0; right:0;
+    padding:18px 16px 0;
+    display:flex; flex-direction:column; align-items:center;
+    pointer-events:none;
+    z-index:5;
+  }
+  #scoreNum{
+    font-size:44px; font-weight:800; color:#fff;
+    text-shadow:0 2px 0 #e69bb9, 0 4px 10px rgba(0,0,0,.12);
+    line-height:1;
+  }
+  #comboTag{
+    margin-top:4px;
+    font-size:15px; font-weight:700; color:#ff6f91;
+    background:rgba(255,255,255,.85);
+    padding:2px 12px; border-radius:20px;
+    box-shadow:0 2px 6px rgba(255,111,145,.25);
+    opacity:0; transform:translateY(-4px) scale(.9);
+    transition:opacity .18s ease, transform .18s ease;
+  }
+  #comboTag.show{ opacity:1; transform:translateY(0) scale(1); }
+  #bestTag{
+    position:absolute; top:20px; right:18px;
+    font-size:12px; color:#8a6f7e; background:rgba(255,255,255,.7);
+    padding:5px 10px; border-radius:14px; font-weight:700;
+    pointer-events:none;
+  }
+  #levelTag{
+    position:absolute; top:58px; left:18px;
+    font-size:12px; color:#8a6f7e; background:rgba(255,255,255,.7);
+    padding:5px 10px; border-radius:14px; font-weight:700;
+    pointer-events:none; z-index:5;
+    max-width:44%;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  #muteBtn{
+    position:absolute; top:14px; left:14px;
+    width:36px; height:36px; border-radius:50%;
+    border:none; background:rgba(255,255,255,.85);
+    font-size:16px; display:flex; align-items:center; justify-content:center;
+    box-shadow:0 3px 8px rgba(120,90,110,.2);
+    cursor:pointer; z-index:21; padding:0;
+  }
+  #muteBtn:active{ transform:scale(.92); }
+
+  /* ---------- Overlays ---------- */
+  .overlay{
+    position:absolute; inset:0;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:14px;
+    padding:28px 24px;
+    z-index:10;
+    background:radial-gradient(120% 100% at 50% 0%, rgba(255,240,248,.55), rgba(255,225,240,.85) 70%);
+    backdrop-filter:blur(2px);
+    text-align:center;
+  }
+  .hidden{ display:none !important; }
+
+  .title-main{
+    font-size:40px; font-weight:800; color:#ff6f91;
+    text-shadow:0 3px 0 #fff, 0 8px 14px rgba(255,111,145,.3);
+    margin:0;
+  }
+  .title-sub{
+    font-size:13px; letter-spacing:.5px; color:#a97ba0; margin-top:-10px; font-weight:600;
+  }
+
+  .tofu-icon{
+    width:76px;height:76px;margin-top:4px;
+    filter:drop-shadow(0 6px 10px rgba(255,159,180,.4));
+  }
+
+  .btn{
+    border:none; cursor:pointer;
+    font-family:inherit; font-weight:800; font-size:19px;
+    color:#fff; padding:14px 42px; border-radius:26px;
+    background:linear-gradient(180deg,#ff9dc0,#ff6f91);
+    box-shadow:0 6px 0 #e0567c, 0 10px 18px rgba(255,111,145,.35);
+    transition:transform .08s ease;
+  }
+  .btn:active{ transform:translateY(4px); box-shadow:0 2px 0 #e0567c, 0 4px 10px rgba(255,111,145,.35); }
+  .btn.secondary{
+    background:linear-gradient(180deg,#c9c2ff,#a79bff);
+    box-shadow:0 6px 0 #7f6fe0, 0 10px 18px rgba(140,120,255,.3);
+    font-size:14px; padding:9px 22px; margin-top:2px;
+  }
+  .btn.secondary:active{ box-shadow:0 2px 0 #7f6fe0; }
+
+  .picker-block{
+    width:100%; max-width:320px;
+    background:rgba(255,255,255,.6);
+    border-radius:18px; padding:10px 12px;
+  }
+  .picker-label{
+    font-size:12px; font-weight:700; color:#a97ba0; margin-bottom:6px; text-align:left;
+  }
+  .swatch-row{
+    display:flex; gap:8px; overflow-x:auto; padding-bottom:2px;
+  }
+  .swatch{
+    position:relative; flex:0 0 auto;
+    width:52px;height:52px; border-radius:16px;
+    display:flex; align-items:center; justify-content:center;
+    border:3px solid transparent;
+    cursor:pointer;
+    background:#fff;
+    box-shadow:0 3px 6px rgba(0,0,0,.08);
+  }
+  .swatch.selected{ border-color:#ff6f91; transform:scale(1.06); }
+  .swatch.locked{ opacity:.55; }
+  .swatch .lock{
+    position:absolute; inset:0;
+    display:flex; align-items:center; justify-content:center;
+    flex-direction:column;
+    background:rgba(255,255,255,.55);
+    border-radius:13px;
+    font-size:9px; font-weight:800; color:#8a6f7e;
+    gap:2px;
+  }
+  .swatch .lock .lockIcon{ font-size:16px; line-height:1; }
+  @keyframes shakeLock{
+    0%,100%{ transform:translateX(0); }
+    20%{ transform:translateX(-4px); }
+    40%{ transform:translateX(4px); }
+    60%{ transform:translateX(-3px); }
+    80%{ transform:translateX(3px); }
+  }
+  .swatch.shake{ animation:shakeLock .35s ease; }
+
+  #toast{
+    position:absolute; left:50%; bottom:18%;
+    transform:translate(-50%, 10px);
+    background:rgba(91,74,85,.92); color:#fff;
+    padding:9px 18px; border-radius:20px;
+    font-size:13px; font-weight:700;
+    opacity:0; pointer-events:none;
+    transition:opacity .22s ease, transform .22s ease;
+    z-index:20; white-space:nowrap;
+  }
+  #toast.show{ opacity:1; transform:translate(-50%, 0); }
+
+  #gameOverPanel{
+    background:var(--card);
+    border-radius:26px; padding:26px 30px;
+    box-shadow:0 14px 30px rgba(120,90,110,.25);
+  }
+  .go-score{ font-size:46px; font-weight:800; color:#ff6f91; margin:4px 0 0; }
+  .go-best{ font-size:13px; color:#a97ba0; font-weight:700; margin-bottom:10px; }
+
+  #tapHint{
+    position:absolute; bottom:36px; left:0; right:0;
+    text-align:center; color:#fff; font-weight:700; font-size:14px;
+    text-shadow:0 2px 6px rgba(0,0,0,.15);
+    opacity:.9; pointer-events:none; z-index:4;
+    animation:hintPulse 1.4s ease-in-out infinite;
+  }
+  @keyframes hintPulse{ 0%,100%{opacity:.5;} 50%{opacity:1;} }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="frame">
+    <canvas id="gameCanvas"></canvas>
+    <button id="muteBtn" aria-label="音樂開關">🔊</button>
+
+    <!-- HUD (only visible while playing) -->
+    <div id="hud">
+      <div id="scoreNum">0</div>
+      <div id="comboTag">Combo</div>
+    </div>
+    <div id="bestTag">最高 0</div>
+    <div id="levelTag">Lv.1 豆腐村</div>
+    <div id="tapHint" class="hidden">點擊畫面 / 按空白鍵 起跳！</div>
+
+    <!-- Start / Menu screen -->
+    <div id="startScreen" class="overlay">
+      <div class="title-main">豆腐女孩</div>
+      <div class="title-sub">TOFU GIRL・疊疊樂</div>
+      <svg class="tofu-icon" viewBox="0 0 100 100">
+        <rect x="14" y="30" width="72" height="46" rx="10" fill="#fff8ec" stroke="#f0d9b8" stroke-width="3"/>
+        <line x1="38" y1="30" x2="38" y2="76" stroke="#f0d9b8" stroke-width="2"/>
+        <line x1="62" y1="30" x2="62" y2="76" stroke="#f0d9b8" stroke-width="2"/>
+        <circle cx="50" cy="18" r="13" fill="#ffe3c9"/>
+        <path d="M37 14 Q50 -2 63 14 Q60 6 50 6 Q40 6 37 14Z" fill="#7a5236"/>
+        <circle cx="45" cy="19" r="1.6" fill="#5b4a55"/>
+        <circle cx="55" cy="19" r="1.6" fill="#5b4a55"/>
+      </svg>
+
+      <div class="picker-block">
+        <div class="picker-label">造型選擇</div>
+        <div class="swatch-row" id="skinRow"></div>
+      </div>
+      <div class="picker-block">
+        <div class="picker-label">豆腐口味</div>
+        <div class="swatch-row" id="flavorRow"></div>
+      </div>
+
+      <button class="btn" id="playBtn">開始遊戲</button>
+    </div>
+
+    <div id="toast"></div>
+
+    <!-- Game Over screen -->
+    <div id="gameOverScreen" class="overlay hidden">
+      <div id="gameOverPanel">
+        <div style="font-size:20px;font-weight:800;color:#8a6f7e;">遊戲結束</div>
+        <div class="go-score" id="finalScore">0</div>
+        <div class="go-best" id="finalBest">最高紀錄 0</div>
+        <button class="btn" id="retryBtn">再玩一次</button>
+        <div><button class="btn secondary" id="menuBtn">更換造型</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============================================================
+   基本設定 Setup
+============================================================ */
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const frame = document.getElementById('frame');
+
+let dpr = Math.max(1, window.devicePixelRatio || 1);
+let M = { W: 390, H: 780 }; // 目前畫布的邏輯（CSS）尺寸
+
+function resize(){
+  const rect = frame.getBoundingClientRect();
+  M.W = rect.width;
+  M.H = rect.height;
+  canvas.width = Math.round(M.W * dpr);
+  canvas.height = Math.round(M.H * dpr);
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+window.addEventListener('resize', resize);
+resize();
+
+/* ============================================================
+   造型與口味資料 Skins & Flavors
+============================================================ */
+const SKINS = [
+  {id:'classic',   name:'經典蝴蝶結', unlock:0,   hair:'#6b4a33', ribbon:'#ff8fab', dress:'#ffeef3', hat:'bow'},
+  {id:'bluecap',   name:'鴨舌帽',     unlock:15,  hair:'#6b4a33', ribbon:'#7ec8e3', dress:'#eaf6ff', hat:'cap'},
+  {id:'headband',  name:'蜜糖髮帶',   unlock:30,  hair:'#d9a441', ribbon:'#ffb6c9', dress:'#fff3e0', hat:'headband'},
+  {id:'flower',    name:'花冠',       unlock:50,  hair:'#c9a15a', ribbon:'#ffd166', dress:'#fff7e6', hat:'flower'},
+  {id:'catears',   name:'貓耳',       unlock:75,  hair:'#2f2a26', ribbon:'#ff8fab', dress:'#fdeef2', hat:'catears'},
+  {id:'twintail',  name:'雙馬尾',     unlock:100, hair:'#3e2723', ribbon:'#e0836a', dress:'#fbe9e7', hat:'twintail'},
+  {id:'odango',    name:'丸子頭',     unlock:120, hair:'#4a3728', ribbon:'#ffb3c6', dress:'#fff0f3', hat:'odango'},
+  {id:'braid',     name:'側編髮辮',   unlock:140, hair:'#8a5a3c', ribbon:'#f4a261', dress:'#fff4e6', hat:'braid'},
+  {id:'crown',     name:'公主皇冠',   unlock:160, hair:'#e8dcc8', ribbon:'#b18bf0', dress:'#f1eaff', hat:'crown'},
+  {id:'bunny',     name:'兔耳',       unlock:185, hair:'#efe3d6', ribbon:'#ffc2d1', dress:'#fff5f8', hat:'bunny'},
+  {id:'beret',     name:'畫家貝雷帽', unlock:210, hair:'#9c3b2e', ribbon:'#f2c14e', dress:'#fdf1e6', hat:'beret'},
+  {id:'sailor',    name:'水手帽',     unlock:240, hair:'#5c4632', ribbon:'#3a5a9b', dress:'#eef4ff', hat:'sailor'},
+  {id:'bandana',   name:'海盜頭巾',   unlock:270, hair:'#3d2b1f', ribbon:'#e05353', dress:'#fff0ec', hat:'bandana'},
+  {id:'starry',    name:'星夜',       unlock:300, hair:'#2b2d42', ribbon:'#9d8df1', dress:'#ede7ff', hat:'star'},
+  {id:'halo',      name:'小天使',     unlock:340, hair:'#f2e8d5', ribbon:'#ffe27a', dress:'#ffffff', hat:'halo'},
+  {id:'witch',     name:'小魔女',     unlock:380, hair:'#3a2e4a', ribbon:'#8a5cf6', dress:'#efe6ff', hat:'witch'},
+  {id:'rainbow',   name:'彩虹夢境',   unlock:420, hair:'#8a6bbf', ribbon:'#ff9dc0', dress:'#eafaf1', hat:'rainbow'},
+  {id:'santa',     name:'聖誕限定',   unlock:470, hair:'#6b4a33', ribbon:'#e34b4b', dress:'#fff0f0', hat:'santa'}
+];
+const FLAVORS = [
+  {id:'original',   name:'原味',     unlock:0,   base:'#fffaf0', line:'#efe1c4'},
+  {id:'matcha',     name:'抹茶',     unlock:10,  base:'#cfe8b8', line:'#a3cf85'},
+  {id:'strawberry', name:'草莓',     unlock:25,  base:'#ffc9d9', line:'#ff98b4'},
+  {id:'honey',      name:'蜂蜜',     unlock:45,  base:'#ffe1a8', line:'#f0b95e'},
+  {id:'taro',       name:'芋頭',     unlock:70,  base:'#dcc7ea', line:'#b797cf'},
+  {id:'choco',      name:'巧克力',   unlock:95,  base:'#c8967a', line:'#a06e52'},
+  {id:'mango',      name:'芒果',     unlock:125, base:'#ffd166', line:'#f2a93b'},
+  {id:'peach',      name:'蜜桃',     unlock:150, base:'#ffd3c2', line:'#ffab91'},
+  {id:'blueberry',  name:'藍莓',     unlock:175, base:'#bcd4f0', line:'#8fb2de'},
+  {id:'redbean',    name:'紅豆',     unlock:200, base:'#e6b8b8', line:'#c48888'},
+  {id:'lychee',     name:'荔枝',     unlock:230, base:'#fbe4e8', line:'#f2b8c6'},
+  {id:'caramel',    name:'焦糖',     unlock:260, base:'#d9a066', line:'#b57a3f'},
+  {id:'coffee',     name:'咖啡',     unlock:290, base:'#a9795f', line:'#83593f'},
+  {id:'apple',      name:'蘋果',     unlock:320, base:'#f7b3b0', line:'#e88a86'},
+  {id:'grape',      name:'葡萄',     unlock:360, base:'#c9a8e0', line:'#a97cc9'},
+  {id:'mint',       name:'薄荷',     unlock:400, base:'#bdeee0', line:'#8ed6c1'},
+  {id:'lemon',      name:'檸檬',     unlock:440, base:'#fff2a8', line:'#f0d95e'},
+  {id:'coconut',    name:'椰子',     unlock:480, base:'#f5f5ef', line:'#d9d4c4'}
+];
+
+// 關卡設定：達到 threshold 分數即「過關」進入下一關，背景主題會平滑漸變
+const LEVELS = [
+  { name:'豆腐村',   threshold:0,   top:'#ffe3ef', mid:'#f3e3ff', bottom:'#e4eeff',
+    clouds:['rgba(255,214,230,.55)','rgba(214,224,255,.5)','rgba(255,246,208,.5)'] },
+  { name:'草莓雲海', threshold:10,  top:'#ffd1e8', mid:'#ffb6c9', bottom:'#ffe8d6',
+    clouds:['rgba(255,255,255,.6)','rgba(255,200,220,.55)','rgba(255,230,200,.5)'] },
+  { name:'薰衣草天空', threshold:25, top:'#e6e0ff', mid:'#cdd6ff', bottom:'#eaf6ff',
+    clouds:['rgba(255,255,255,.6)','rgba(210,200,255,.55)','rgba(200,230,255,.5)'] },
+  { name:'蜜糖黃昏', threshold:50,  top:'#ffe9b0', mid:'#ffcf9e', bottom:'#ffb6a3',
+    clouds:['rgba(255,255,255,.55)','rgba(255,224,160,.55)','rgba(255,190,170,.5)'] },
+  { name:'薄荷森林', threshold:100, top:'#d8f5e6', mid:'#bdeacd', bottom:'#eafff2',
+    clouds:['rgba(255,255,255,.6)','rgba(190,240,210,.55)','rgba(220,255,235,.5)'] },
+  { name:'星光銀河', threshold:200, top:'#2b2d42', mid:'#4b3f72', bottom:'#7d5ba6',
+    clouds:['rgba(255,255,255,.85)','rgba(220,210,255,.6)','rgba(180,160,255,.5)'] }
+];
+function levelIndexForScore(s){
+  let idx = 0;
+  for(let i=0;i<LEVELS.length;i++){ if(s >= LEVELS[i].threshold) idx = i; }
+  return idx;
+}
+function hexToRgb(str){
+  if(str.startsWith('rgb')){
+    const parts = str.match(/[\d.]+/g).map(Number);
+    return { r:parts[0], g:parts[1], b:parts[2] };
+  }
+  const v = parseInt(str.slice(1),16);
+  return { r:(v>>16)&255, g:(v>>8)&255, b:v&255 };
+}
+function rgbLerpStr(hexA, hexB, t){
+  const a = hexToRgb(hexA), b = hexToRgb(hexB);
+  const r = Math.round(lerp(a.r,b.r,t));
+  const g = Math.round(lerp(a.g,b.g,t));
+  const bl= Math.round(lerp(a.b,b.b,t));
+  return `rgb(${r},${g},${bl})`;
+}
+
+const save = {
+  get(k, d){ try{ const v = localStorage.getItem(k); return v===null?d:JSON.parse(v);}catch(e){return d;} },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+};
+let highScore   = save.get('tofu_highscore', 0);
+
+/* ============================================================
+   音樂與音效 Audio Engine（純程式合成，不需外部音檔）
+============================================================ */
+const AudioEngine = (function(){
+  let ctx=null, master=null, musicGain=null, sfxGain=null;
+  let muted = save.get('tofu_muted', false);
+  let nextNoteTime = 0, noteIndex = 0, schedulerId = null;
+
+  // 可愛音樂盒風格的循環旋律（五聲音階，輕快療癒）
+  const melody = [
+    {n:'C5',d:0.26},{n:'E5',d:0.26},{n:'G5',d:0.26},{n:'E5',d:0.26},
+    {n:'A5',d:0.26},{n:'G5',d:0.26},{n:'E5',d:0.26},{n:'D5',d:0.26},
+    {n:'C5',d:0.26},{n:'D5',d:0.26},{n:'E5',d:0.26},{n:'G5',d:0.26},
+    {n:'F5',d:0.26},{n:'E5',d:0.26},{n:'D5',d:0.26},{n:'C5',d:0.52}
+  ];
+  const FREQ = {
+    C4:261.63,D4:293.66,E4:329.63,F4:349.23,G4:392.00,A4:440.00,B4:493.88,
+    C5:523.25,D5:587.33,E5:659.25,F5:698.46,G5:783.99,A5:880.00,B5:987.77,
+    C6:1046.50,D6:1174.66,E6:1318.51,G6:1567.98
+  };
+
+  function ensureCtx(){
+    if(ctx) return;
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    master = ctx.createGain();
+    master.gain.value = muted ? 0 : 1;
+    master.connect(ctx.destination);
+    musicGain = ctx.createGain(); musicGain.gain.value = 0.15; musicGain.connect(master);
+    sfxGain = ctx.createGain(); sfxGain.gain.value = 0.32; sfxGain.connect(master);
+    nextNoteTime = ctx.currentTime + 0.15;
+    scheduler();
+  }
+
+  function resume(){
+    ensureCtx();
+    if(ctx.state === 'suspended') ctx.resume();
+  }
+
+  function setMuted(m){
+    muted = m;
+    save.set('tofu_muted', muted);
+    if(master) master.gain.setTargetAtTime(muted ? 0 : 1, ctx.currentTime, 0.05);
+  }
+
+  function scheduler(){
+    const lookahead = 0.22;
+    while(ctx && nextNoteTime < ctx.currentTime + lookahead){
+      const note = melody[noteIndex % melody.length];
+      playMusicNote(FREQ[note.n], nextNoteTime, note.d*0.92);
+      nextNoteTime += note.d;
+      noteIndex++;
+    }
+    schedulerId = setTimeout(scheduler, 100);
+  }
+
+  function playMusicNote(freq, time, dur){
+    const o = ctx.createOscillator();
+    o.type = 'triangle';
+    o.frequency.setValueAtTime(freq, time);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, time);
+    g.gain.linearRampToValueAtTime(0.85, time+0.015);
+    g.gain.exponentialRampToValueAtTime(0.001, time+dur);
+    o.connect(g); g.connect(musicGain);
+    o.start(time); o.stop(time+dur+0.05);
+  }
+
+  function tone(freq, type, time, dur, peak, dest){
+    const o = ctx.createOscillator();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, time);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, time);
+    g.gain.exponentialRampToValueAtTime(peak, time+0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, time+dur);
+    o.connect(g); g.connect(dest || sfxGain);
+    o.start(time); o.stop(time+dur+0.03);
+  }
+
+  return {
+    resume,
+    setMuted,
+    get muted(){ return muted; },
+    jump(){ if(!ctx) return; const t=ctx.currentTime; tone(520,'sine',t,0.09,0.5); tone(760,'sine',t+0.02,0.07,0.32); },
+    great(){ if(!ctx) return; const t=ctx.currentTime; tone(660,'triangle',t,0.13,0.4); },
+    perfect(){ if(!ctx) return; const t=ctx.currentTime; [880,1108,1318].forEach((f,i)=>tone(f,'triangle',t+i*0.06,0.16,0.5)); },
+    levelUp(){ if(!ctx) return; const t=ctx.currentTime; [523,659,784,1046].forEach((f,i)=>tone(f,'triangle',t+i*0.07,0.18,0.45)); },
+    miss(){ if(!ctx) return; const t=ctx.currentTime; tone(260,'sawtooth',t,0.32,0.28); tone(150,'sawtooth',t+0.09,0.4,0.24); },
+    click(){ if(!ctx) return; const t=ctx.currentTime; tone(700,'sine',t,0.05,0.22); }
+  };
+})();
+let skinId      = save.get('tofu_skin', 'classic');
+let flavorId    = save.get('tofu_flavor', 'original');
+
+function currentSkin(){ return SKINS.find(s=>s.id===skinId) || SKINS[0]; }
+function currentFlavor(){ return FLAVORS.find(f=>f.id===flavorId) || FLAVORS[0]; }
+
+/* ============================================================
+   遊戲狀態 Game State
+============================================================ */
+let gameState = 'menu'; // 'menu' | 'playing' | 'gameover'
+let score = 0;
+let comboCount = 0;
+let tofuStack = [];     // 已疊好的豆腐
+let mover = null;       // 正在左右移動、尚未放置的豆腐
+let debris = [];        // 掉落的碎豆腐
+let particles = [];     // 飄字特效
+let camera = { offset:0, target:0 };
+let bgClouds = [];
+let currentLevel = 0;
+let bgTransition = { active:false, t:0, from:LEVELS[0], to:LEVELS[0] };
+let banner = { active:false, text:'', t:0, dur:1.7 };
+
+const GRAVITY = 1400;
+const PERFECT_PX = 6;
+
+const girl = {
+  x:0, y:0,          // 目前腳底世界座標
+  w:0, h:0,
+  state:'idle',      // idle | jumping | fall | landed
+  t:0, dur:0.32,
+  from:{x:0,y:0}, to:{x:0,y:0},
+  arcH:0,
+  perfect:false,
+  squash:0,          // 0~1 落地擠壓量
+  vy:0, vx:0, rot:0,
+  bob:0
+};
+
+/* ============================================================
+   輔助函式 Helpers
+============================================================ */
+function lerp(a,b,t){ return a + (b-a)*t; }
+function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+function easeOutQuad(t){ return 1 - (1-t)*(1-t); }
+function rand(a,b){ return a + Math.random()*(b-a); }
+
+function roundRect(ctx,x,y,w,h,r){
+  const rr = Math.min(r, w/2, h/2);
+  ctx.beginPath();
+  ctx.moveTo(x+rr,y);
+  ctx.arcTo(x+w,y,x+w,y+h,rr);
+  ctx.arcTo(x+w,y+h,x,y+h,rr);
+  ctx.arcTo(x,y+h,x,y,rr);
+  ctx.arcTo(x,y,x+w,y,rr);
+  ctx.closePath();
+}
+
+/* ============================================================
+   建立背景泡泡雲朵 Background bokeh
+============================================================ */
+function initClouds(){
+  bgClouds = [];
+  for(let i=0;i<14;i++){
+    bgClouds.push({
+      x: Math.random()*M.W,
+      y: Math.random()*M.H*3 - M.H,
+      r: rand(18,60),
+      speed: rand(4,14),
+      hueIdx: Math.floor(Math.random()*3)
+    });
+  }
+}
+
+/* ============================================================
+   遊戲初始化 / 重新開始
+============================================================ */
+function baseTofuWidth(){ return M.W*0.52; }
+function tofuHeight(){ return Math.max(26, M.H*0.042); }
+function gapY(){ return M.H*0.125; }
+function minTofuWidth(){ return Math.max(34, M.W*0.16); }
+
+function newMoverAbove(prevTofu, dirSign){
+  const w = prevTofu.w;
+  const startX = dirSign>0 ? (w/2 + 6) : (M.W - w/2 - 6);
+  return {
+    x:startX, y: prevTofu.y - gapY(),
+    w, h: tofuHeight(),
+    dir: dirSign,
+    speed: 0
+  };
+}
+
+function moverSpeedForScore(s){
+  return Math.min(M.W*1.35, M.W*0.55 + s*4.2);
+}
+
+function resetGame(){
+  score = 0;
+  comboCount = 0;
+  tofuStack = [];
+  debris = [];
+  particles = [];
+  currentLevel = 0;
+  bgTransition = { active:false, t:0, from:LEVELS[0], to:LEVELS[0] };
+  banner = { active:false, text:'', t:0, dur:1.7 };
+
+  const w0 = baseTofuWidth();
+  const h0 = tofuHeight();
+  const baseY = 0; // 世界座標基準
+
+  const first = { x: M.W/2, y: baseY, w:w0, h:h0, settle:0 };
+  tofuStack.push(first);
+
+  mover = newMoverAbove(first, Math.random()<0.5 ? 1 : -1);
+  mover.speed = moverSpeedForScore(0);
+
+  girl.w = M.W*0.16;
+  girl.h = girl.w*1.35;
+  girl.x = first.x;
+  girl.y = first.y;
+  girl.state = 'idle';
+  girl.squash = 0;
+  girl.rot = 0;
+  girl.vx = girl.vy = 0;
+
+  camera.offset = baseY - M.H*0.66;
+  camera.target = camera.offset;
+
+  initClouds();
+  updateHud();
+}
+
+/* ============================================================
+   分數 / HUD
+============================================================ */
+const scoreEl = document.getElementById('scoreNum');
+const bestEl = document.getElementById('bestTag');
+const comboEl = document.getElementById('comboTag');
+const levelEl = document.getElementById('levelTag');
+
+function updateHud(){
+  scoreEl.textContent = score;
+  bestEl.textContent = '最高 ' + Math.max(highScore, score);
+  levelEl.textContent = 'Lv.' + (currentLevel+1) + ' ' + LEVELS[currentLevel].name;
+  if(comboCount>=2){
+    comboEl.textContent = 'Combo x' + comboCount;
+    comboEl.classList.add('show');
+  } else {
+    comboEl.classList.remove('show');
+  }
+}
+
+/* ============================================================
+   飄字 / 碎片
+============================================================ */
+function spawnParticle(x,y,text,color){
+  particles.push({x,y,text,color,alpha:1,vy:-70,scale:0.6,life:0});
+}
+function spawnDebris(x,y,w,h,dirSign){
+  const fl = currentFlavor();
+  debris.push({
+    x,y,w,h,
+    vx: dirSign*rand(40,90),
+    vy: rand(-60,-10),
+    rot:0, vr: dirSign*rand(2,5),
+    alpha:1,
+    base: fl.base, line: fl.line
+  });
+}
+
+/* ============================================================
+   輸入處理 Input
+============================================================ */
+function handleTap(){
+  AudioEngine.resume();
+  if(gameState==='playing'){
+    doJump();
+  }
+}
+canvas.addEventListener('pointerdown', (e)=>{ e.preventDefault(); handleTap(); });
+window.addEventListener('keydown', (e)=>{
+  if(e.code==='Space' || e.code==='ArrowUp'){
+    e.preventDefault();
+    handleTap();
+  }
+});
+
+/* ============================================================
+   核心玩法：跳躍判定 Jump logic
+============================================================ */
+function doJump(){
+  if(girl.state!=='idle') return;
+  const prev = tofuStack[tofuStack.length-1];
+  const m = mover;
+
+  const prevL = prev.x - prev.w/2, prevR = prev.x + prev.w/2;
+  const moveL = m.x - m.w/2, moveR = m.x + m.w/2;
+  const overlapL = Math.max(prevL, moveL);
+  const overlapR = Math.min(prevR, moveR);
+  const overlapW = overlapR - overlapL;
+
+  if(overlapW <= 2){
+    // 落空 -> 遊戲結束
+    startFall(m.x, m.y);
+    return;
+  }
+
+  const centerDiff = Math.abs(m.x - prev.x);
+  const isPerfect = centerDiff <= PERFECT_PX;
+
+  let newW, newX;
+  if(isPerfect){
+    newW = prev.w; // 完美對齊，維持寬度，略微吸附置中
+    newX = prev.x;
+  } else {
+    newW = overlapW;
+    newX = overlapL + newW/2;
+    // 掉落的碎片
+    if(m.x > prev.x){
+      spawnDebris(overlapR + (moveR-overlapR)/2, m.y, moveR-overlapR, m.h, 1);
+    } else {
+      spawnDebris(moveL + (overlapL-moveL)/2, m.y, overlapL-moveL, m.h, -1);
+    }
+    // 保底最小寬度：避免疊到後面豆腐越切越細，變成細長無法遊玩的樣子
+    const minW = minTofuWidth();
+    if(newW < minW){
+      newW = minW;
+      newX = clamp(overlapL + overlapW/2, newW/2, M.W - newW/2);
+    }
+  }
+
+  const newTofu = { x:newX, y:m.y, w:newW, h:m.h, settle:0 };
+  tofuStack.push(newTofu);
+
+  // 分數與連擊
+  if(isPerfect){
+    comboCount++;
+    score += 2 + Math.min(comboCount, 10);
+    spawnParticle(newX, m.y - m.h, comboCount>=3 ? 'PERFECT!!' : 'Perfect!', '#ff6f91');
+    AudioEngine.jump();
+    AudioEngine.perfect();
+  } else {
+    comboCount = 0;
+    score += 1;
+    spawnParticle(newX, m.y - m.h, 'Great!', '#7ec8a3');
+    AudioEngine.jump();
+    AudioEngine.great();
+  }
+  updateHud();
+  if(score > 0 && score % 10 === 0) checkUnlocksToast();
+
+  const newLevel = levelIndexForScore(score);
+  if(newLevel > currentLevel){
+    triggerLevelUp(newLevel);
+  }
+
+  // 相機往上移動的目標
+  camera.target = newTofu.y - M.H*0.5;
+
+  // 女孩跳躍動畫
+  girl.from.x = girl.x; girl.from.y = girl.y;
+  girl.to.x = newX; girl.to.y = newTofu.y;
+  girl.arcH = gapY()*0.85;
+  girl.t = 0;
+  girl.dur = 0.30;
+  girl.perfect = isPerfect;
+  girl.state = 'jumping';
+
+  // 產生下一顆移動中的豆腐
+  const nextDir = newX < M.W/2 ? 1 : -1;
+  mover = newMoverAbove(newTofu, Math.random()<0.5 ? nextDir : -nextDir);
+  mover.speed = moverSpeedForScore(score);
+}
+
+function startFall(x,y){
+  girl.state = 'fall';
+  girl.x = x; girl.y = y;
+  girl.vx = rand(-40,40);
+  girl.vy = -220;
+  girl.rot = 0;
+  mover = null;
+  AudioEngine.miss();
+  setTimeout(()=>{ triggerGameOver(); }, 650);
+}
+
+function checkUnlocksToast(){
+  // 分數達標時可自動解鎖造型/口味（僅重新整理選單顯示，不強制彈窗）
+}
+
+function triggerLevelUp(newLevel){
+  // 記錄目前畫面上實際呈現的顏色，作為漸變起點（避免中途切換時的跳動感）
+  const shownFrom = bgTransition.active
+    ? { top: rgbLerpStr(bgTransition.from.top, bgTransition.to.top, bgTransition.t),
+        mid: rgbLerpStr(bgTransition.from.mid, bgTransition.to.mid, bgTransition.t),
+        bottom: rgbLerpStr(bgTransition.from.bottom, bgTransition.to.bottom, bgTransition.t),
+        clouds: bgTransition.to.clouds }
+    : LEVELS[currentLevel];
+
+  currentLevel = newLevel;
+  bgTransition = { active:true, t:0, from:shownFrom, to:LEVELS[newLevel] };
+  banner = { active:true, text:'第 ' + (newLevel+1) + ' 關・' + LEVELS[newLevel].name, t:0, dur:1.7 };
+  AudioEngine.levelUp();
+  updateHud();
+}
+
+/* ============================================================
+   更新 Update
+============================================================ */
+let lastTime = performance.now();
+function update(dt){
+  // 背景雲朵飄動
+  for(const c of bgClouds){
+    c.y += c.speed*dt*0.15;
+  }
+
+  // 關卡背景漸變
+  if(bgTransition.active){
+    bgTransition.t += dt/1.0;
+    if(bgTransition.t >= 1){ bgTransition.t = 1; bgTransition.active = false; }
+  }
+  // 過關橫幅
+  if(banner.active){
+    banner.t += dt;
+    if(banner.t >= banner.dur) banner.active = false;
+  }
+
+  if(gameState==='playing'){
+    // 移動中的豆腐左右擺動
+    if(mover){
+      mover.x += mover.dir * mover.speed * dt;
+      const minX = mover.w/2 + 4;
+      const maxX = M.W - mover.w/2 - 4;
+      if(mover.x < minX){ mover.x = minX; mover.dir = 1; }
+      if(mover.x > maxX){ mover.x = maxX; mover.dir = -1; }
+    }
+
+    // 女孩跳躍動畫
+    if(girl.state==='jumping'){
+      girl.t += dt/girl.dur;
+      const t = clamp(girl.t,0,1);
+      const et = easeOutQuad(t);
+      girl.x = lerp(girl.from.x, girl.to.x, et);
+      const baseY = lerp(girl.from.y, girl.to.y, et);
+      const arc = Math.sin(t*Math.PI) * girl.arcH;
+      girl.y = baseY - arc;
+      girl.rot = girl.perfect ? t*Math.PI*2 : Math.sin(t*Math.PI)*0.15;
+      if(t>=1){
+        girl.state = 'idle';
+        girl.rot = 0;
+        girl.squash = 1;
+      }
+    } else if(girl.state==='fall'){
+      girl.vy += GRAVITY*dt;
+      girl.x += girl.vx*dt;
+      girl.y += girl.vy*dt;
+      girl.rot += dt*6;
+    }
+
+    // 落地擠壓回彈
+    girl.squash *= Math.exp(-dt*9);
+
+    // 相機平滑跟隨
+    camera.offset = lerp(camera.offset, camera.target, 1-Math.exp(-dt*6));
+
+    // 豆腐 Q 彈沉降動畫計時
+    for(const tf of tofuStack) tf.settle += dt;
+
+    // 碎片物理
+    for(const d of debris){
+      d.vy += GRAVITY*0.6*dt;
+      d.x += d.vx*dt;
+      d.y += d.vy*dt;
+      d.rot += d.vr*dt;
+      d.alpha -= dt*0.9;
+    }
+    debris = debris.filter(d=>d.alpha>0);
+
+    // 飄字
+    for(const p of particles){
+      p.life += dt;
+      p.y += p.vy*dt;
+      p.alpha -= dt*0.9;
+      p.scale = Math.min(1, p.scale + dt*4);
+    }
+    particles = particles.filter(p=>p.alpha>0);
+  }
+}
+
+/* ============================================================
+   繪製 Draw
+============================================================ */
+function drawBackground(){
+  const lv = bgTransition.active ? bgTransition.to : LEVELS[currentLevel];
+  const t = bgTransition.active ? bgTransition.t : 1;
+  const from = bgTransition.from;
+
+  const topC = rgbLerpStr(from.top, lv.top, t);
+  const midC = rgbLerpStr(from.mid, lv.mid, t);
+  const botC = rgbLerpStr(from.bottom, lv.bottom, t);
+
+  const g = ctx.createLinearGradient(0,0,0,M.H);
+  g.addColorStop(0, topC);
+  g.addColorStop(0.5, midC);
+  g.addColorStop(1, botC);
+  ctx.fillStyle = g;
+  ctx.fillRect(0,0,M.W,M.H);
+
+  const hues = lv.clouds;
+  for(const c of bgClouds){
+    let sy = ((c.y - camera.offset*0.05) % (M.H*1.4) + M.H*1.4) % (M.H*1.4) - M.H*0.2;
+    ctx.beginPath();
+    ctx.fillStyle = hues[c.hueIdx];
+    ctx.ellipse(c.x, sy, c.r, c.r*0.7, 0, 0, Math.PI*2);
+    ctx.fill();
+  }
+}
+
+function drawTofuBlock(tf, wobbleAmp){
+  const fl = currentFlavor();
+  const sy = tf.y - camera.offset;
+  let wob = 0;
+  if(wobbleAmp>0){
+    wob = Math.exp(-tf.settle*8) * Math.sin(tf.settle*22) * wobbleAmp;
+  }
+  const h = tf.h * (1 - wob*0.18);
+  const w = tf.w * (1 + wob*0.10);
+  const x = tf.x - w/2;
+  const y = sy - h;
+
+  ctx.save();
+  // 陰影
+  ctx.fillStyle = 'rgba(120,90,110,.16)';
+  roundRect(ctx, x+3, y+h-2, w, 10, 8);
+  ctx.fill();
+
+  // 本體
+  ctx.fillStyle = fl.base;
+  roundRect(ctx, x, y, w, h, 9);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,.6)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // 豆腐格紋
+  ctx.strokeStyle = fl.line;
+  ctx.lineWidth = 1.4;
+  const cols = Math.max(2, Math.round(w/26));
+  for(let i=1;i<cols;i++){
+    const lx = x + (w/cols)*i;
+    ctx.beginPath();
+    ctx.moveTo(lx, y+4);
+    ctx.lineTo(lx, y+h-4);
+    ctx.stroke();
+  }
+  ctx.beginPath();
+  ctx.moveTo(x+4, y+h/2);
+  ctx.lineTo(x+w-4, y+h/2);
+  ctx.stroke();
+
+  // 高光
+  ctx.fillStyle = 'rgba(255,255,255,.45)';
+  roundRect(ctx, x+4, y+3, w-8, h*0.28, 5);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawDebris(d){
+  const sy = d.y - camera.offset;
+  ctx.save();
+  ctx.globalAlpha = clamp(d.alpha,0,1);
+  ctx.translate(d.x, sy);
+  ctx.rotate(d.rot);
+  ctx.fillStyle = d.base;
+  roundRect(ctx, -d.w/2, -d.h/2, d.w, d.h, 6);
+  ctx.fill();
+  ctx.strokeStyle = d.line;
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawGirl(){
+  const sy = girl.y - camera.offset;
+  const skin = currentSkin();
+  const w = girl.w, h = girl.h;
+  const squashY = 1 - girl.squash*0.28;
+  const squashX = 1 + girl.squash*0.20;
+  const bob = (girl.state==='idle') ? Math.sin(performance.now()/280)*2 : 0;
+
+  ctx.save();
+  ctx.translate(girl.x, sy - h*0.5 + bob);
+  ctx.rotate(girl.rot);
+  ctx.scale(squashX, squashY);
+
+  const headR = w*0.42;
+  const bodyW = w*0.66;
+  const bodyH = h*0.46;
+  const bodyTopY = -h*0.02;
+
+  // 陰影腳影（僅 idle / landed）
+  if(girl.state!=='fall'){
+    ctx.save();
+    ctx.globalAlpha = .18;
+    ctx.fillStyle = '#5b4a55';
+    ctx.beginPath();
+    ctx.ellipse(0, h*0.46, bodyW*0.5, 5, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // 雙腳
+  ctx.fillStyle = '#7a5236';
+  roundRect(ctx, -bodyW*0.32, h*0.30, bodyW*0.26, h*0.16, 5);
+  ctx.fill();
+  roundRect(ctx, bodyW*0.06, h*0.30, bodyW*0.26, h*0.16, 5);
+  ctx.fill();
+
+  // 身體（洋裝）
+  ctx.fillStyle = skin.dress;
+  roundRect(ctx, -bodyW/2, bodyTopY, bodyW, bodyH, 14);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,.05)';
+  ctx.stroke();
+
+  // 手臂
+  ctx.strokeStyle = '#ffdcc2';
+  ctx.lineWidth = w*0.11;
+  ctx.lineCap = 'round';
+  const armSwing = girl.state==='jumping' ? -0.7 : (girl.state==='fall'?0.9:-0.15);
+  ctx.beginPath();
+  ctx.moveTo(-bodyW*0.42, bodyTopY+6);
+  ctx.lineTo(-bodyW*0.42 + Math.cos(Math.PI*0.75+armSwing)*w*0.28, bodyTopY+6 + Math.sin(Math.PI*0.75+armSwing)*w*0.28);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(bodyW*0.42, bodyTopY+6);
+  ctx.lineTo(bodyW*0.42 - Math.cos(Math.PI*0.75+armSwing)*w*0.28, bodyTopY+6 + Math.sin(Math.PI*0.75+armSwing)*w*0.28);
+  ctx.stroke();
+
+  // 緞帶腰帶
+  ctx.fillStyle = skin.ribbon;
+  roundRect(ctx, -bodyW/2, bodyTopY+bodyH*0.32, bodyW, bodyH*0.16, 4);
+  ctx.fill();
+
+  // 頭
+  const headY = bodyTopY - headR*0.92;
+  ctx.fillStyle = '#ffdcc2';
+  ctx.beginPath();
+  ctx.arc(0, headY, headR, 0, Math.PI*2);
+  ctx.fill();
+
+  // 頭髮（後方大範圍）
+  ctx.fillStyle = skin.hair;
+  ctx.beginPath();
+  ctx.arc(0, headY, headR*1.05, Math.PI*0.95, Math.PI*2.05);
+  ctx.fill();
+
+  if(skin.hat==='twintail'){
+    ctx.beginPath();
+    ctx.ellipse(-headR*1.05, headY+headR*0.3, headR*0.34, headR*0.6, -0.3, 0, Math.PI*2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(headR*1.05, headY+headR*0.3, headR*0.34, headR*0.6, 0.3, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  // 瀏海
+  ctx.beginPath();
+  ctx.moveTo(-headR*0.95, headY-headR*0.15);
+  ctx.quadraticCurveTo(0, headY-headR*1.05, headR*0.95, headY-headR*0.15);
+  ctx.quadraticCurveTo(0, headY-headR*0.55, -headR*0.95, headY-headR*0.15);
+  ctx.fill();
+
+  // 臉頰腮紅
+  ctx.fillStyle = 'rgba(255,140,170,.55)';
+  ctx.beginPath(); ctx.ellipse(-headR*0.55, headY+headR*0.15, headR*0.16, headR*0.1,0,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(headR*0.55, headY+headR*0.15, headR*0.16, headR*0.1,0,0,Math.PI*2); ctx.fill();
+
+  // 眼睛
+  ctx.fillStyle = '#5b4a55';
+  const eyeShape = girl.state==='fall' ? 0.4 : 1;
+  ctx.beginPath(); ctx.ellipse(-headR*0.32, headY+headR*0.05, headR*0.09, headR*0.11*eyeShape,0,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(headR*0.32, headY+headR*0.05, headR*0.09, headR*0.11*eyeShape,0,0,Math.PI*2); ctx.fill();
+
+  // 嘴巴
+  ctx.strokeStyle = '#c76b83';
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.arc(0, headY+headR*0.28, headR*0.16, 0.15*Math.PI, 0.85*Math.PI);
+  ctx.stroke();
+
+  // 帽子 / 頭飾
+  drawHat(skin, headY, headR);
+
+  ctx.restore();
+}
+
+function drawHat(skin, headY, headR){
+  ctx.save();
+  if(skin.hat==='bow'){
+    ctx.fillStyle = skin.ribbon;
+    ctx.beginPath();
+    ctx.moveTo(headR*0.1, headY-headR*0.95);
+    ctx.lineTo(headR*0.55, headY-headR*1.25);
+    ctx.lineTo(headR*0.55, headY-headR*0.7);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(-headR*0.1, headY-headR*0.95);
+    ctx.lineTo(-headR*0.55, headY-headR*1.25);
+    ctx.lineTo(-headR*0.55, headY-headR*0.7);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.arc(0, headY-headR*0.95, headR*0.14, 0, Math.PI*2);
+    ctx.fill();
+  } else if(skin.hat==='cap'){
+    ctx.fillStyle = skin.hat==='cap' ? '#7ec8e3' : skin.ribbon;
+    ctx.beginPath();
+    ctx.arc(0, headY-headR*0.25, headR*0.95, Math.PI, Math.PI*2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(headR*0.55, headY-headR*0.25, headR*0.5, headR*0.14, 0,0,Math.PI*2);
+    ctx.fill();
+  } else if(skin.hat==='flower'){
+    const petals = 6;
+    for(let i=0;i<petals;i++){
+      const a = (i/petals)*Math.PI*2;
+      const px = Math.cos(a)*headR*0.85;
+      const py = headY-headR*0.55 + Math.sin(a)*headR*0.28;
+      ctx.fillStyle = i%2? '#ffd166':'#ff9dc0';
+      ctx.beginPath();
+      ctx.ellipse(px, py, headR*0.22, headR*0.16, a, 0, Math.PI*2);
+      ctx.fill();
+    }
+    ctx.fillStyle = '#fff3b0';
+    ctx.beginPath();
+    ctx.arc(0, headY-headR*0.6, headR*0.16, 0, Math.PI*2);
+    ctx.fill();
+  } else if(skin.hat==='star'){
+    ctx.fillStyle = '#ffe27a';
+    drawStar(0, headY-headR*1.05, 5, headR*0.28, headR*0.13);
+  } else if(skin.hat==='headband'){
+    ctx.strokeStyle = skin.ribbon;
+    ctx.lineWidth = headR*0.22;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.arc(0, headY-headR*0.05, headR*0.92, Math.PI*1.15, Math.PI*1.85);
+    ctx.stroke();
+    ctx.fillStyle = '#fff3b0';
+    ctx.beginPath();
+    ctx.arc(headR*0.62, headY-headR*0.68, headR*0.14, 0, Math.PI*2);
+    ctx.fill();
+  } else if(skin.hat==='catears'){
+    ctx.fillStyle = skin.hair;
+    ctx.beginPath();
+    ctx.moveTo(-headR*0.75, headY-headR*0.55);
+    ctx.lineTo(-headR*0.95, headY-headR*1.35);
+    ctx.lineTo(-headR*0.15, headY-headR*0.85);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(headR*0.75, headY-headR*0.55);
+    ctx.lineTo(headR*0.95, headY-headR*1.35);
+    ctx.lineTo(headR*0.15, headY-headR*0.85);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = skin.ribbon;
+    ctx.beginPath();
+    ctx.moveTo(-headR*0.68, headY-headR*0.68);
+    ctx.lineTo(-headR*0.8, headY-headR*1.1);
+    ctx.lineTo(-headR*0.35, headY-headR*0.82);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(headR*0.68, headY-headR*0.68);
+    ctx.lineTo(headR*0.8, headY-headR*1.1);
+    ctx.lineTo(headR*0.35, headY-headR*0.82);
+    ctx.closePath(); ctx.fill();
+  } else if(skin.hat==='crown'){
+    ctx.fillStyle = '#ffd75e';
+    const baseY = headY-headR*0.85;
+    ctx.beginPath();
+    ctx.moveTo(-headR*0.6, baseY+headR*0.22);
+    ctx.lineTo(-headR*0.6, baseY-headR*0.05);
+    ctx.lineTo(-headR*0.32, baseY-headR*0.32);
+    ctx.lineTo(0, baseY-headR*0.02);
+    ctx.lineTo(headR*0.32, baseY-headR*0.32);
+    ctx.lineTo(headR*0.6, baseY-headR*0.05);
+    ctx.lineTo(headR*0.6, baseY+headR*0.22);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#ff9dc0';
+    ctx.beginPath(); ctx.arc(0, baseY-headR*0.02, headR*0.08, 0, Math.PI*2); ctx.fill();
+  } else if(skin.hat==='beret'){
+    ctx.fillStyle = skin.ribbon;
+    ctx.beginPath();
+    ctx.ellipse(headR*0.05, headY-headR*0.85, headR*0.78, headR*0.5, -0.1, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle = '#fdf1e6';
+    ctx.beginPath();
+    ctx.arc(headR*0.55, headY-headR*1.2, headR*0.1, 0, Math.PI*2);
+    ctx.fill();
+  } else if(skin.hat==='rainbow'){
+    const stripeColors = ['#ff8fab','#ffd166','#9ee6b0','#7ec8e3','#c9a7f0'];
+    for(let i=0;i<stripeColors.length;i++){
+      ctx.strokeStyle = stripeColors[i];
+      ctx.lineWidth = headR*0.09;
+      ctx.beginPath();
+      ctx.arc(0, headY+headR*0.15, headR*(0.98-i*0.1), Math.PI*1.08, Math.PI*1.92);
+      ctx.stroke();
+    }
+    ctx.fillStyle = skin.ribbon;
+    ctx.beginPath();
+    ctx.arc(0, headY-headR*0.95, headR*0.13, 0, Math.PI*2);
+    ctx.fill();
+  } else if(skin.hat==='odango'){
+    ctx.fillStyle = skin.hair;
+    ctx.beginPath(); ctx.arc(-headR*0.4, headY-headR*0.95, headR*0.3, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(headR*0.4, headY-headR*0.95, headR*0.3, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = skin.ribbon;
+    ctx.beginPath(); ctx.arc(-headR*0.4, headY-headR*0.7, headR*0.08, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(headR*0.4, headY-headR*0.7, headR*0.08, 0, Math.PI*2); ctx.fill();
+  } else if(skin.hat==='braid'){
+    ctx.strokeStyle = skin.hair;
+    ctx.lineWidth = headR*0.32;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(headR*0.55, headY-headR*0.4);
+    ctx.quadraticCurveTo(headR*0.95, headY+headR*0.1, headR*0.7, headY+headR*0.85);
+    ctx.stroke();
+    ctx.strokeStyle = skin.ribbon;
+    ctx.lineWidth = headR*0.1;
+    for(let i=0;i<3;i++){
+      const yy = headY-headR*0.1 + i*headR*0.35;
+      ctx.beginPath();
+      ctx.arc(headR*0.62 + i*headR*0.04, yy, headR*0.17, 0, Math.PI*2);
+      ctx.stroke();
+    }
+  } else if(skin.hat==='bunny'){
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.ellipse(-headR*0.42, headY-headR*1.15, headR*0.22, headR*0.55, -0.12, 0, Math.PI*2);
+    ctx.fill();
+    ctx.ellipse(headR*0.42, headY-headR*1.15, headR*0.22, headR*0.55, 0.12, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle = skin.ribbon;
+    ctx.beginPath();
+    ctx.ellipse(-headR*0.42, headY-headR*1.12, headR*0.11, headR*0.34, -0.12, 0, Math.PI*2);
+    ctx.fill();
+    ctx.ellipse(headR*0.42, headY-headR*1.12, headR*0.11, headR*0.34, 0.12, 0, Math.PI*2);
+    ctx.fill();
+  } else if(skin.hat==='sailor'){
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(0, headY-headR*0.3, headR*0.95, Math.PI, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle = skin.ribbon;
+    ctx.fillRect(-headR*0.95, headY-headR*0.34, headR*1.9, headR*0.16);
+    ctx.beginPath();
+    ctx.moveTo(-headR*0.1, headY-headR*0.16);
+    ctx.lineTo(headR*0.1, headY-headR*0.16);
+    ctx.lineTo(0, headY+headR*0.05);
+    ctx.closePath(); ctx.fill();
+  } else if(skin.hat==='bandana'){
+    ctx.fillStyle = skin.ribbon;
+    ctx.beginPath();
+    ctx.moveTo(-headR*0.98, headY-headR*0.15);
+    ctx.quadraticCurveTo(0, headY-headR*1.35, headR*0.98, headY-headR*0.15);
+    ctx.quadraticCurveTo(0, headY-headR*0.85, -headR*0.98, headY-headR*0.15);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.75)';
+    for(let i=-1;i<=1;i++){
+      ctx.beginPath();
+      ctx.arc(i*headR*0.35, headY-headR*1.0, headR*0.06, 0, Math.PI*2);
+      ctx.fill();
+    }
+    ctx.fillStyle = skin.ribbon;
+    ctx.beginPath();
+    ctx.moveTo(headR*0.8, headY-headR*0.5);
+    ctx.lineTo(headR*1.15, headY-headR*0.2);
+    ctx.lineTo(headR*0.85, headY-headR*0.15);
+    ctx.closePath(); ctx.fill();
+  } else if(skin.hat==='halo'){
+    ctx.strokeStyle = '#ffe27a';
+    ctx.lineWidth = headR*0.1;
+    ctx.beginPath();
+    ctx.ellipse(0, headY-headR*1.35, headR*0.42, headR*0.13, 0, 0, Math.PI*2);
+    ctx.stroke();
+  } else if(skin.hat==='witch'){
+    ctx.fillStyle = skin.ribbon;
+    ctx.beginPath();
+    ctx.ellipse(0, headY-headR*0.75, headR*0.92, headR*0.22, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(-headR*0.4, headY-headR*0.8);
+    ctx.lineTo(headR*0.12, headY-headR*2.0);
+    ctx.lineTo(headR*0.45, headY-headR*0.75);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#ffe27a';
+    ctx.fillRect(-headR*0.35, headY-headR*0.85, headR*0.7, headR*0.14);
+  } else if(skin.hat==='santa'){
+    ctx.fillStyle = skin.ribbon;
+    ctx.beginPath();
+    ctx.moveTo(-headR*0.55, headY-headR*0.8);
+    ctx.quadraticCurveTo(headR*0.1, headY-headR*1.9, headR*0.55, headY-headR*1.25);
+    ctx.quadraticCurveTo(headR*0.15, headY-headR*1.05, -headR*0.1, headY-headR*0.75);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.ellipse(0, headY-headR*0.78, headR*0.68, headR*0.16, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(headR*0.55, headY-headR*1.25, headR*0.14, 0, Math.PI*2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+function drawStar(cx,cy,spikes,outerR,innerR){
+  let rot = Math.PI/2*3;
+  let x=cx, y=cy;
+  const step = Math.PI/spikes;
+  ctx.beginPath();
+  ctx.moveTo(cx, cy-outerR);
+  for(let i=0;i<spikes;i++){
+    x = cx + Math.cos(rot)*outerR; y = cy + Math.sin(rot)*outerR;
+    ctx.lineTo(x,y); rot += step;
+    x = cx + Math.cos(rot)*innerR; y = cy + Math.sin(rot)*innerR;
+    ctx.lineTo(x,y); rot += step;
+  }
+  ctx.lineTo(cx, cy-outerR);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawParticles(){
+  for(const p of particles){
+    const sy = p.y - camera.offset;
+    ctx.save();
+    ctx.globalAlpha = clamp(p.alpha,0,1);
+    ctx.translate(p.x, sy);
+    ctx.scale(p.scale,p.scale);
+    ctx.font = '800 22px "Segoe UI Rounded", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = 'rgba(255,255,255,.9)';
+    ctx.strokeText(p.text,0,0);
+    ctx.fillStyle = p.color;
+    ctx.fillText(p.text,0,0);
+    ctx.restore();
+  }
+}
+
+function drawLevelBanner(){
+  if(!banner.active) return;
+  const p = banner.t / banner.dur;
+  const slideIn = clamp(p/0.22, 0, 1);
+  const slideOut = clamp((p-0.72)/0.28, 0, 1);
+  const alpha = easeOutQuad(slideIn) * (1-easeOutQuad(slideOut));
+  const y = lerp(-40, M.H*0.24, easeOutQuad(slideIn)) ;
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.translate(M.W/2, y);
+
+  ctx.fillStyle = 'rgba(255,255,255,.92)';
+  const textW = ctx.measureText ? Math.min(M.W*0.86, banner.text.length*15+50) : M.W*0.8;
+  roundRect(ctx, -textW/2, -22, textW, 44, 22);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,159,180,.8)';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  ctx.font = '800 20px "Segoe UI Rounded", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#ff6f91';
+  ctx.fillText(banner.text, 0, 1);
+  ctx.restore();
+}
+
+function draw(){
+  drawBackground();
+
+  // 已疊豆腐（由下往上畫，最新的在最上）
+  for(let i=0;i<tofuStack.length;i++){
+    drawTofuBlock(tofuStack[i], i===tofuStack.length-1 ? 0.6 : 0);
+  }
+  for(const d of debris) drawDebris(d);
+
+  // 移動中的豆腐
+  if(mover && gameState==='playing'){
+    drawTofuBlock({x:mover.x,y:mover.y,w:mover.w,h:mover.h,settle:999}, 0);
+  }
+
+  drawGirl();
+  drawParticles();
+  drawLevelBanner();
+}
+
+/* ============================================================
+   主迴圈 Main loop
+============================================================ */
+function loop(now){
+  const dt = Math.min(0.033, (now-lastTime)/1000);
+  lastTime = now;
+  update(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame((t)=>{ lastTime=t; requestAnimationFrame(loop); });
+
+/* ============================================================
+   畫面切換 Screens
+============================================================ */
+const startScreen = document.getElementById('startScreen');
+const gameOverScreen = document.getElementById('gameOverScreen');
+const tapHint = document.getElementById('tapHint');
+const hud = document.getElementById('hud');
+const bestTag = document.getElementById('bestTag');
+
+function showMenu(){
+  gameState = 'menu';
+  resetGame();
+  buildPickers();
+  startScreen.classList.remove('hidden');
+  gameOverScreen.classList.add('hidden');
+  tapHint.classList.add('hidden');
+}
+function startGame(){
+  resetGame();
+  gameState = 'playing';
+  startScreen.classList.add('hidden');
+  gameOverScreen.classList.add('hidden');
+  tapHint.classList.remove('hidden');
+  setTimeout(()=>tapHint.classList.add('hidden'), 2400);
+}
+function triggerGameOver(){
+  gameState = 'gameover';
+  if(score > highScore){
+    highScore = score;
+    save.set('tofu_highscore', highScore);
+  }
+  document.getElementById('finalScore').textContent = score;
+  document.getElementById('finalBest').textContent = '最高紀錄 ' + highScore;
+  updateHud();
+  gameOverScreen.classList.remove('hidden');
+  tapHint.classList.add('hidden');
+}
+
+document.getElementById('playBtn').addEventListener('click', (e)=>{ e.stopPropagation(); AudioEngine.resume(); AudioEngine.click(); startGame(); });
+document.getElementById('retryBtn').addEventListener('click', (e)=>{ e.stopPropagation(); AudioEngine.resume(); AudioEngine.click(); startGame(); });
+document.getElementById('menuBtn').addEventListener('click', (e)=>{ e.stopPropagation(); AudioEngine.resume(); AudioEngine.click(); showMenu(); });
+
+const muteBtn = document.getElementById('muteBtn');
+muteBtn.textContent = AudioEngine.muted ? '🔇' : '🔊';
+muteBtn.addEventListener('click', (e)=>{
+  e.stopPropagation();
+  AudioEngine.resume();
+  AudioEngine.setMuted(!AudioEngine.muted);
+  muteBtn.textContent = AudioEngine.muted ? '🔇' : '🔊';
+});
+
+/* ============================================================
+   造型 / 口味 選擇器 Pickers
+============================================================ */
+let toastTimer = null;
+function showToast(msg){
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>{ el.classList.remove('show'); }, 1500);
+}
+
+function swatchPreviewSkin(sk){
+  return `<svg width="30" height="30" viewBox="0 0 30 30">
+    <circle cx="15" cy="15" r="10" fill="#ffdcc2"/>
+    <path d="M5 13 a10 10 0 0 1 20 0 a10 12 0 0 0 -20 0z" fill="${sk.hair}"/>
+    <rect x="9" y="20" width="12" height="6" rx="2" fill="${sk.dress}"/>
+  </svg>`;
+}
+function swatchPreviewFlavor(fl){
+  return `<svg width="30" height="22" viewBox="0 0 30 22">
+    <rect x="2" y="2" width="26" height="18" rx="4" fill="${fl.base}" stroke="${fl.line}" stroke-width="1.5"/>
+    <line x1="15" y1="2" x2="15" y2="20" stroke="${fl.line}" stroke-width="1"/>
+  </svg>`;
+}
+
+function buildPickers(){
+  const skinRow = document.getElementById('skinRow');
+  const flavorRow = document.getElementById('flavorRow');
+  skinRow.innerHTML = '';
+  flavorRow.innerHTML = '';
+
+  SKINS.forEach(sk=>{
+    const unlocked = highScore >= sk.unlock;
+    const div = document.createElement('div');
+    div.className = 'swatch' + (sk.id===skinId?' selected':'') + (!unlocked?' locked':'');
+    div.innerHTML = swatchPreviewSkin(sk) + (!unlocked ? `<div class="lock"><span class="lockIcon">🔒</span>${sk.unlock}分</div>` : '');
+    div.title = sk.name + (unlocked? '' : `（分數達 ${sk.unlock} 解鎖）`);
+    div.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      if(!unlocked){
+        div.classList.remove('shake'); void div.offsetWidth; div.classList.add('shake');
+        showToast(`分數達到 ${sk.unlock} 才能解鎖「${sk.name}」`);
+        return;
+      }
+      skinId = sk.id; save.set('tofu_skin', skinId);
+      AudioEngine.resume(); AudioEngine.click();
+      buildPickers();
+    });
+    skinRow.appendChild(div);
+  });
+
+  FLAVORS.forEach(fl=>{
+    const unlocked = highScore >= fl.unlock;
+    const div = document.createElement('div');
+    div.className = 'swatch' + (fl.id===flavorId?' selected':'') + (!unlocked?' locked':'');
+    div.innerHTML = swatchPreviewFlavor(fl) + (!unlocked ? `<div class="lock"><span class="lockIcon">🔒</span>${fl.unlock}分</div>` : '');
+    div.title = fl.name + (unlocked? '' : `（分數達 ${fl.unlock} 解鎖）`);
+    div.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      if(!unlocked){
+        div.classList.remove('shake'); void div.offsetWidth; div.classList.add('shake');
+        showToast(`分數達到 ${fl.unlock} 才能解鎖「${fl.name}」`);
+        return;
+      }
+      flavorId = fl.id; save.set('tofu_flavor', flavorId);
+      AudioEngine.resume(); AudioEngine.click();
+      buildPickers();
+    });
+    flavorRow.appendChild(div);
+  });
+}
+
+/* ============================================================
+   啟動 Init
+============================================================ */
+showMenu();
+
+})();
+</script>
+</body>
+</html>
