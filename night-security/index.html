@@ -28,7 +28,7 @@
   #cross{position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px 0 0 -2px;background:rgba(255,255,255,.7);border-radius:50%}
   #prompt{position:absolute;left:50%;top:calc(50% + 26px);transform:translateX(-50%);font-size:16px;color:#fff;
     background:rgba(0,0,0,.45);padding:3px 12px;border-radius:3px;white-space:nowrap;display:none}
-  #sub{position:absolute;left:50%;bottom:9%;transform:translateX(-50%);max-width:80vw;text-align:center;
+  #sub{position:fixed;left:50%;bottom:9%;z-index:2;pointer-events:none;transform:translateX(-50%);max-width:80vw;text-align:center;
     font-size:21px;color:#f4f1e6;background:rgba(0,0,0,.55);padding:8px 20px;border-radius:2px;display:none;line-height:1.5}
   #sub b{color:#e8c070}
   #sub i{font-style:normal;color:#c8d0e0}
@@ -78,10 +78,10 @@
   <div id="clock"><div id="rec">● REC</div><div class="time" id="time">PM 11:00</div><div class="fl" id="floorTxt">1F</div></div>
   <div id="cross"></div>
   <div id="prompt"></div>
-  <div id="sub"></div>
   <div id="stam"><div></div></div>
   <div id="flash">手電筒 [F]：OFF</div>
 </div>
+<div id="sub"></div>
 <div id="camui">
   <div class="frame"></div>
   <div class="tl"><span style="color:#ff5050">● REC</span> <span id="camName">CAM 1</span></div>
@@ -107,7 +107,9 @@
     四、停電時，請立刻前往一樓廁所內的配電箱恢復電源。<br>
     五、監視器畫面中出現<b>不該存在的東西</b>時，請立即回報。<br>
     <span class="red">六、如果有什麼東西跟在你身後——不要回頭。跑回警衛室，把門關上。</span><br>
-    七、撐到早上六點。
+    <span class="red">七、警衛室的門被敲響時，不論門外的人說自己是誰，<b>絕對不要開門</b>。</span><br>
+    八、手電筒的電池請省著用。備用電池放在警衛室桌上。<br>
+    九、撐到早上六點。
   </div>
   <div class="close">[E] 或 點擊 關閉</div>
 </div>
@@ -329,6 +331,22 @@ const MAT = {
   screen: new THREE.MeshBasicMaterial({ map: screenTex }),
   vend: phong({ map: TX.vend, emissive: 0xffffff, emissiveMap: TX.vend }),
   paper: phong({ map: TX.paper }),
+  battery: phong({ color: 0x2a3a8a, shininess: 50 }),
+  batCap: new THREE.MeshBasicMaterial({ color: 0xd8b040 }),
+  mirrorScare: new THREE.MeshBasicMaterial({ map: tex(48, 64, (g) => {
+    const gr = g.createLinearGradient(0, 0, 0, 64); gr.addColorStop(0, '#1c232c'); gr.addColorStop(1, '#0c1014');
+    g.fillStyle = gr; g.fillRect(0, 0, 48, 64);
+    g.fillStyle = 'rgba(160,170,180,.10)'; g.fillRect(6, 0, 10, 64); g.fillRect(36, 10, 4, 54);
+    // the player's own dark silhouette, bottom left
+    g.fillStyle = '#07090b'; g.beginPath(); g.ellipse(15, 40, 7, 8, 0, 0, 7); g.fill(); g.fillRect(4, 47, 22, 17);
+    // her, standing right behind
+    g.fillStyle = '#050505'; g.fillRect(25, 14, 15, 34); g.beginPath(); g.ellipse(32.5, 17, 8, 8, 0, 0, 7); g.fill();
+    g.fillStyle = '#cfcbbf'; g.beginPath(); g.ellipse(32.5, 20, 4.2, 5.6, 0, 0, 7); g.fill();
+    g.fillStyle = '#000'; g.fillRect(30, 19, 2, 2); g.fillRect(34, 19, 2, 2); g.fillRect(32, 23.5, 1.5, 2.5);
+    g.fillStyle = '#050505'; g.fillRect(28, 13, 2, 14); g.fillRect(35, 14, 2, 16);
+    g.fillStyle = '#9a968c'; g.fillRect(26, 44, 13, 20);
+    grain(g, 48, 64, 26);
+  }) }),
   red: phong({ color: 0x8a1a18 }),
   skin: phong({ color: 0xd2cfc4 }),
 };
@@ -348,6 +366,8 @@ const DOORS = new Map();   // key "f,r,c"
 const INTER = [];
 const CHECKPOINTS = [];
 const SWITCH_LEDS = [];
+const MIRRORS = [];
+const BATTERIES = [];
 let SPAWN = { r: 5, c: 2 };
 const dkey = (f, r, c) => f + ',' + r + ',' + c;
 
@@ -506,8 +526,9 @@ function buildFloor(f) {
       case 'U': {
         const g = new THREE.Group();
         box(.6, .14, .45, MAT.white, 0, .85, .23, g); cyl(.05, .05, .7, MAT.white, 0, .45, .15, g);
-        box(.62, .82, .03, MAT.mirror, 0, 1.6, .02, g);
+        const mir = box(.62, .82, .03, MAT.mirror, 0, 1.6, .02, g);
         mount(g); F.ray.push(g);
+        MIRRORS.push({ f, mesh: mir, x: g.position.x, z: g.position.z });
         break;
       }
       case 'E': {
@@ -728,7 +749,7 @@ const G = {
   power: true, flash: false, ringing: false, ringT: 0, ringLeft: 0, frontLocked: false,
   clock: 0, clockRun: false, flicker: 0, flags: {}, camIdx: 0, camStatic: 0, camMsgT: 0, reportCd: 0,
   strikes: 0, spawnT: 0, hover: null, scareT: 0, deathKind: null, app: null,
-  chase: null,
+  chase: null, battery: .7, knock: null, mirror: null, flashScareT: 0,
 };
 const keys = {};
 let timers = [];
@@ -747,6 +768,21 @@ function buildActors() {
   GH.figLobby = makeGhost(); GH.figCorr1 = makeGhost(); GH.figCorr2 = makeGhost(); GH.figOffice = makeGhost();
   GH.doll1 = makeDoll(); GH.doll2 = makeDoll();
   GH.chair1 = makeChair(); GH.chair2 = makeChair();
+  GH.close = makeGhost();
+  const addBattery = (f, x, y, z, rot) => {
+    const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = rot;
+    const b = cyl(.028, .028, .11, MAT.battery, 0, .028, 0, g); b.rotation.z = Math.PI / 2;
+    const cap = cyl(.029, .029, .02, MAT.batCap, .05, .028, 0, g); cap.rotation.z = Math.PI / 2;
+    box(.3, .2, .3, new THREE.MeshBasicMaterial({ visible: false }), 0, .08, 0, g);   // easier to aim at
+    const bt = { f, g, taken: false };
+    setInter(g, { label: () => bt.taken ? null : '[E] 撿起電池', action: () => {
+      bt.taken = true; g.visible = false; G.battery = 1; SFX.pickup(); SFX.click(); mono('（換上新電池了。）');
+    } });
+    scene.add(g); FLOORS[f].ray.push(g); BATTERIES.push(bt);
+  };
+  addBattery(0, 2.72, .78, 5.42, .4);      // guard room desk
+  addBattery(1, 99.2, 0, 6.6, 1.2);        // 2F storage floor
+  addBattery(0, 7.3, 0, 24.6, -.5);        // 1F storage floor
 }
 function placeAt(obj, f, r, c, faceX, faceZ, dx = 0, dz = 0) {
   const p = center(f, r, c); obj.position.set(p.x + dx, 0, p.z + dz);
@@ -812,6 +848,11 @@ function toggleDoor(d) {
   if (d.open && pc.r === d.r && pc.c === d.c) return;
   d.open = !d.open; d.target = d.open ? -1.5 : 0;
   const p = center(d.f, d.r, d.c);
+  if (d.open && G.knock && d === guardDoor()) {
+    SFX.doorOpen(p.x, p.z, d.f); G.knock = null; const ep = G.epoch;
+    wait(.6).then(() => { if (ep === G.epoch) die('knock'); });
+    return;
+  }
   if (d.open) SFX.doorOpen(p.x, p.z, d.f); else setTimeout(() => SFX.doorClose(p.x, p.z, d.f), 300);
 }
 function lockFront() {
@@ -864,7 +905,8 @@ function resetWorld() {
   CHECKPOINTS.forEach(cp => { cp.done = false; cp.led.color.setHex(0xff2020); });
   ANOM.forEach(a => clearAnom(a));
   Object.values(GH).forEach(g => g.visible = false);
-  Object.assign(G, { power: true, flash: false, ringing: false, frontLocked: false, clock: 0, clockRun: true, flicker: 0,
+  BATTERIES.forEach(b => { b.taken = false; b.g.visible = true; });
+  Object.assign(G, { battery: .7, knock: null, mirror: null, power: true, flash: false, ringing: false, frontLocked: false, clock: 0, clockRun: true, flicker: 0,
     flags: {}, strikes: 0, app: null, chase: null, camIdx: 0 });
 }
 function startGame() {
@@ -974,7 +1016,7 @@ async function scriptCams1() {
 function powerOutage() {
   G.power = false; SFX.powerDown();
   if (G.mode === 'cam') exitCam();
-  G.phase = 'outage'; G.flash = true; G.flags.stepsT = 6;
+  G.phase = 'outage'; G.battery = Math.max(G.battery, .35); G.flash = true; G.flags.stepsT = 6;
   const ep = G.epoch;
   (async () => {
     await mono('（停電了！？）'); if (ep !== G.epoch) return;
@@ -1085,11 +1127,45 @@ async function endChase() {
 function startCams2() {
   G.phase = 'cams2'; G.clock = Math.max(G.clock, 240); G.clockRun = true; G.strikes = 0; G.spawnT = 6;
   OFFICES.forEach(o => LIGHTS.forEach(l => { if (l.f === 1 && l.room === officeRoom(o)) l.on = false; }));
-  G.flags.lateCall = false; G.flags.rangLate = false;
+  G.flags.lateCall = false; G.flags.rangLate = false; G.flags.knockDone = false; G.flags.finale = false; G.knock = null;
+}
+const KNOCK_LINES = [
+  ['喂——是我，田中。', '田中'],
+  ['我來看看你的狀況。開個門吧。', '田中'],
+  ['……外面好冷啊。快點開門。', '田中'],
+  ['為什麼不開門？', '田中'],
+  ['我知道你在裡面。', '田中'],
+  ['開門。開門。開門。開門開門開門開門開門', '？？？'],
+];
+function updateKnock(dt) {
+  const pc = toCell(P.f, P.x, P.z);
+  if (!G.knock && !G.flags.knockDone && G.clock >= 300 && G.clock < 395 && P.f === 0 && roomAt(0, pc.r, pc.c) === GUARD_ROOM()) {
+    const gd = guardDoor();
+    G.knock = { t: 0, next: 2.2, i: 0 };
+    if (gd.open) {
+      gd.open = false; gd.target = 0; const dp = center(0, 6, 2);
+      SFX.doorClose(dp.x, dp.z, 0, true); G.flicker = .6;
+      mono('（門……自己關上了？）');
+    }
+  }
+  const K = G.knock; if (!K) return;
+  K.t += dt; K.next -= dt;
+  if (K.next <= 0 && K.i < KNOCK_LINES.length) {
+    const dp = center(0, 6, 2), gd = guardDoor();
+    SFX.knock(dp.x, dp.z, 0, K.i === KNOCK_LINES.length - 1 ? 8 : 3, 1.3); gd.shake = .3;
+    say(KNOCK_LINES[K.i][0], KNOCK_LINES[K.i][1], 2.8);
+    if (K.i === 1) mono('（守則第七條……門被敲響時，絕對不要開門。）');
+    K.i++; K.next = K.i === KNOCK_LINES.length - 1 ? 5 : 4.2;
+  }
+  if (K.i >= KNOCK_LINES.length && K.next < -3) {
+    G.knock = null; G.flags.knockDone = true;
+    mono('（……腳步聲，慢慢走遠了。）');
+  }
 }
 function updateCams2(dt) {
   G.clock += dt;               // 1 game-minute per second
-  if (G.clock >= 420) { ending(); return; }
+  if (G.clock >= 419) { G.clock = 419; if (!G.flags.finale) { G.flags.finale = true; finale(); } return; }
+  updateKnock(dt);
   G.spawnT -= dt;
   const active = ANOM.filter(a => a.active);
   if (G.spawnT <= 0) {
@@ -1111,6 +1187,53 @@ function updateCams2(dt) {
   if (G.clock > 330 && !G.flags.rangLate) { G.flags.rangLate = true; startRing(14); }
 }
 
+function ghostInFront(dist) {
+  const g = GH.close, fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw);
+  g.position.set(P.x + fx * dist, 0, P.z + fz * dist);
+  g.rotation.y = Math.atan2(P.x - g.position.x, P.z - g.position.z);
+  setGhostOpacity(g, 1); g.visible = true; P.pitch = 0;
+  return g;
+}
+async function finale() {
+  const ep = G.epoch, ok = () => ep === G.epoch;
+  G.phase = 'finale'; stopRing(); G.knock = null;
+  ANOM.forEach(a => clearAnom(a));
+  const fd = $('fade');
+  if (G.mode === 'cam') {
+    G.mode = 'cam'; G.camIdx = 1; G.camStatic = .5; SFX.static();
+    const g = GH.figCorr1; const cp = CAMS[1].cam.position;
+    placeAt(g, 0, 7, 17, cp.x, cp.z); g.rotation.y += Math.PI; g.visible = true; setGhostOpacity(g, 1);
+    const from = g.rotation.y, to = from - Math.PI;
+    await wait(1.6); if (!ok()) return;
+    SFX.soft();
+    for (let i = 0; i <= 40; i++) { g.rotation.y = from + (to - from) * (i / 40) ** 2; await wait(.06); if (!ok()) return; }
+    await wait(.9); if (!ok()) return;
+    g.position.set(cp.x - 1.7, 0, cp.z); g.rotation.y = Math.atan2(cp.x - g.position.x, cp.z - g.position.z);
+    G.camStatic = 1.2; SFX.stinger();
+    await wait(.7); if (!ok()) return;
+    g.visible = false;
+    fd.style.transition = 'none'; fd.style.opacity = 1;
+    exitCam(); G.mode = 'cut';
+  } else {
+    G.mode = 'cut'; G.power = false; SFX.powerDown();
+    await wait(1.2); if (!ok()) return;
+    fd.style.transition = 'none'; fd.style.opacity = 1;
+  }
+  G.power = false;
+  await wait(1.6); if (!ok()) return;
+  SFX.breath(P.x - Math.sin(P.yaw), P.z - Math.cos(P.yaw), P.f);
+  await wait(1.4); if (!ok()) return;
+  G.power = true; G.flicker = 1.5; SFX.powerUp();
+  ghostInFront(.95);
+  fd.style.opacity = 0;
+  await wait(1.1); if (!ok()) return;
+  G.flashScareT = .45; $('scare').style.display = 'block'; SFX.scream();
+  await wait(.45); if (!ok()) return;
+  GH.close.visible = false; fd.style.opacity = 1;
+  await wait(2.2); if (!ok()) return;
+  G.clock = 420; ending();
+}
+
 /* -------------------------------------------------------- DEATH / END */
 function die(kind) {
   G.epoch++; timers = []; subQ = []; subCur = null; $('sub').style.display = 'none';
@@ -1124,19 +1247,19 @@ function die(kind) {
 function showDeath() {
   $('scare').style.display = 'none';
   document.exitPointerLock && document.exitPointerLock();
-  const msg = G.deathKind === 'chase' ? '你被「她」抓住了。' : '你沒有注意到「她」已經站在你身後。';
+  const msg = G.deathKind === 'chase' ? '你被「她」抓住了。' : G.deathKind === 'knock' ? '你打開了門。<br>站在門外的，不是田中。' : '你沒有注意到「她」已經站在你身後。';
   showScreen(`<p style="color:#a33;font-size:30px;letter-spacing:.3em">你死了</p><p style="margin-top:18px">${msg}</p>
     <div style="margin-top:40px"><button id="retryBtn">重新開始這一段</button></div>`);
   $('retryBtn').onclick = () => { hideScreen(); retry(); };
 }
 function retry() {
   G.epoch++; timers = []; subQ = []; subCur = null;
-  Object.values(GH).forEach(g => g.visible = false); G.chase = null; G.app = null;
+  Object.values(GH).forEach(g => g.visible = false); G.chase = null; G.app = null; G.knock = null; G.mirror = null;
   $('hud').style.display = 'block'; G.mode = 'walk'; G.power = true; G.flicker = 0;
   lockPointer();
   fadeIn();
   if (G.deathKind === 'chase') {
-    setPlayer(0, 4, 19, Math.PI / 2); G.phase = 'chase'; G.flash = true;
+    setPlayer(0, 4, 19, Math.PI / 2); G.phase = 'chase'; G.battery = Math.max(G.battery, .5); G.flash = true;
     LIGHTS.forEach(l => { if (l.f === 0) l.on = true; });
     startChase();
   } else {
@@ -1189,7 +1312,20 @@ async function rideElevator() {
   await wait(2); if (ep !== G.epoch) return;
   const nf = 1 - P.f;
   setPlayer(nf, 9, 19, Math.PI / 2);
-  SFX.ding(); fadeIn(); G.mode = 'walk';
+  SFX.ding();
+  G.flags.rides = (G.flags.rides || 0) + 1;
+  if (G.flags.rides === 2 && !G.flags.elevScare && ['patrol', 'return'].includes(G.phase)) {
+    G.flags.elevScare = true;
+    const g = ghostInFront(1.15);
+    const fd = $('fade'); fd.style.transition = 'opacity .25s'; fd.style.opacity = 0;
+    await wait(.4); if (ep !== G.epoch) return;
+    SFX.stinger(); G.flicker = 1.3;
+    await wait(1.0); if (ep !== G.epoch) return;
+    g.visible = false; G.flicker = .4; G.mode = 'walk';
+    mono('（……！？剛剛……電梯門口站著……）');
+    return;
+  }
+  fadeIn(); G.mode = 'walk';
   if (nf === 1 && !G.flags.saw2F && G.phase !== 'clockin') {
     G.flags.saw2F = true;
     placeAt(GH.app, 1, 7, 2, center(1, 7, 18).x, center(1, 7, 18).z); setGhostOpacity(GH.app, 1); GH.app.visible = true;
@@ -1244,7 +1380,10 @@ document.addEventListener('keydown', e => {
   if (G.mode === 'note' && (e.code === 'KeyE' || e.code === 'Space')) { closeNote(); return; }
   if (G.mode === 'walk') {
     if (e.code === 'KeyE' && G.hover) { const h = G.hover; G.hover = null; h.action(); }
-    if (e.code === 'KeyF') { G.flash = !G.flash; SFX.click(); }
+    if (e.code === 'KeyF') {
+      if (!G.flash && G.battery <= 0) { SFX.click(); mono('（沒電了……得找備用電池。）'); }
+      else { G.flash = !G.flash; SFX.click(); }
+    }
   } else if (G.mode === 'cam') {
     if (e.code === 'KeyA' || e.code === 'ArrowLeft') { G.camIdx = (G.camIdx + CAMS.length - 1) % CAMS.length; G.camStatic = .25; SFX.static(); }
     if (e.code === 'KeyD' || e.code === 'ArrowRight') { G.camIdx = (G.camIdx + 1) % CAMS.length; G.camStatic = .25; SFX.static(); }
@@ -1340,6 +1479,34 @@ function updateApparition(dt) {
   }
 }
 
+function updateMirror(dt) {
+  if (G.mirror) {
+    const M = G.mirror; M.t += dt;
+    tmpV.set(M.m.x, 1.6, M.m.z); camera.getWorldDirection(fwd);
+    const look = tmpV.clone().sub(camera.position).normalize().dot(fwd);
+    if (M.t > 1.6 || (M.t > .35 && look < .75)) {
+      M.m.mesh.material = MAT.mirror; G.mirror = null; G.flags.mirrorDone = true;
+      SFX.soft(); mono('（……剛剛鏡子裡，我身後是不是站著一個人？）');
+    }
+    return;
+  }
+  if (G.flags.mirrorDone || !['patrol', 'return', 'outage'].includes(G.phase) || G.mode !== 'walk' || P.f !== 0) return;
+  const pc = toCell(0, P.x, P.z); if (roomAt(0, pc.r, pc.c) !== roomAt(0, 3, 18)) return;
+  camera.getWorldDirection(fwd);
+  for (const m of MIRRORS) {
+    tmpV.set(m.x, 1.6, m.z);
+    const d = tmpV.distanceTo(camera.position);
+    if (d < 3.4 && tmpV.clone().sub(camera.position).normalize().dot(fwd) > .93) {
+      G.flags.mirrorSeen = (G.flags.mirrorSeen || 0) + dt;
+      if (G.flags.mirrorSeen > .45) {
+        m.mesh.material = MAT.mirrorScare; G.mirror = { m, t: 0 };
+        SFX.breath(P.x + Math.sin(P.yaw) * .8, P.z + Math.cos(P.yaw) * .8, 0);
+        G.flicker = .5;
+      }
+      return;
+    }
+  }
+}
 function updateLights(dt) {
   if (G.flicker > 0) G.flicker -= dt;
   for (const l of LIGHTS) {
@@ -1354,8 +1521,16 @@ function updateLights(dt) {
   for (const s of SWITCH_LEDS) s.led.color.setHex(!G.power ? 0x111111 : roomLightsOn(s.f, s.room) ? 0xffa040 : 0x30ff60);
   const near = LIGHTS.some(l => l.f === P.f && l.on && G.power && Math.hypot(center(l.f, l.r, l.c).x - P.x, center(l.f, l.r, l.c).z - P.z) < 6);
   if (A.hum) A.hum.gain.value += (((near ? .018 : .004) * (G.power ? 1 : 0)) - A.hum.gain.value) * Math.min(1, dt * 3);
-  flashlight.intensity = (G.flash && G.mode === 'walk') ? 1.7 : 0;
-  $('flash').textContent = '手電筒 [F]：' + (G.flash ? 'ON' : 'OFF');
+  if (G.flash && G.mode === 'walk' && G.running) {
+    G.battery -= dt / 110;
+    if (G.battery <= 0) { G.battery = 0; G.flash = false; SFX.click(); mono('（手電筒……沒電了。）'); }
+  }
+  let fi = (G.flash && G.mode === 'walk') ? 1.7 : 0;
+  if (fi && G.battery < .2) fi *= (.35 + G.battery * 3) * (Math.random() < .12 ? .15 : 1);
+  flashlight.intensity = fi;
+  const bars = Math.ceil(G.battery * 4);
+  const ft = '手電筒 [F]：' + (G.flash ? 'ON' : 'OFF') + '　電池 ' + '▮'.repeat(bars) + '▯'.repeat(4 - bars);
+  if ($('flash').textContent !== ft) { $('flash').textContent = ft; $('flash').style.color = G.battery < .25 ? '#e07a6a' : '#c9c19f'; }
 }
 function updateDoors(dt) {
   DOORS.forEach(d => {
@@ -1434,6 +1609,10 @@ function update(dt) {
     return;
   }
   G.deathShown = false;
+  if (G.flashScareT > 0) {
+    G.flashScareT -= dt; drawScare(.6 - G.flashScareT);
+    if (G.flashScareT <= 0) $('scare').style.display = 'none';
+  }
   if (!G.running || G.paused) return;
   for (const t of timers.slice()) { t.t -= dt; if (t.t <= 0) { timers.splice(timers.indexOf(t), 1); t.res(); } }
   if (!subCur && subQ.length) {
@@ -1443,12 +1622,12 @@ function update(dt) {
   if (subCur) { subCur.dur -= dt; if (subCur.dur <= 0) { const r = subCur.res; subCur = null; $('sub').style.display = 'none'; r(); } }
   if (G.mode === 'walk') updatePlayer(dt);
   else { camera.position.set(P.x, EYE, P.z); camera.rotation.set(P.pitch, P.yaw, 0); }
-  if (G.clockRun && G.phase !== 'cams2' && G.phase !== 'end') G.clock = Math.min(G.clock + dt / 2.5, 235);
+  if (G.clockRun && G.clock < 235) G.clock = Math.min(G.clock + dt / 2.5, 235);
   if (G.phase === 'cams2') updateCams2(dt);
   if (G.mode === 'dead' || G.mode === 'end') return;
   if (G.phase === 'chase' || (G.chase && G.chase.state === 'bang')) updateChase(dt);
   else if (A.tension) A.tension.gain.value *= .97;
-  updateRing(dt); updateOutage(dt); updateApparition(dt);
+  updateRing(dt); updateOutage(dt); updateApparition(dt); updateMirror(dt);
   updateDoors(dt); updateLights(dt); updateScreens(dt);
   if (G.reportCd > 0) G.reportCd -= dt;
   if (G.camMsgT > 0) { G.camMsgT -= dt; if (G.camMsgT <= 0) $('camMsg').style.display = 'none'; }
