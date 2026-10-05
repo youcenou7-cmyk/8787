@@ -135,12 +135,12 @@ const MAPS = [[
   '#Mggg#,KK,,,KK,#:::::#',
   '#ggOg#,,,,O,,,,#::O::#',
   '#gggg#,KK,,,KK,#::::P#',
-  '#gSgg#,,,,,,,,L#::::B#',
+  '#gSgg#L,,,,,,,,#::::B#',
   '##D####D########D#####',
   '#..O........O........#',
   '#D#########D####.....#',
-  '#......#.........O..E#',
-  '#..O..L#.............#',
+  '#.L....#.........O..E#',
+  '#..O...#.............#',
   '#......#.............#',
   '#P.....#HVV.......H..#',
   '#############XX#######',
@@ -150,14 +150,14 @@ const MAPS = [[
   '#,KK,K,#,KK,K,#......#',
   '#,,O,,,#,,O,,,#..O..P#',
   '#,KK,K,#,KK,K,#Q.....#',
-  '#,,,,,L#,,,,,L#Q.....#',
+  '#,L,,,,#,L,,,,#Q.....#',
   '###D######D#####D#####',
   '#P.O........O........#',
   '#######D########.....#',
-  '#,,,,,,,,,,,,,#..O..E#',
+  '#,,,,,L,,,,,,,#..O..E#',
   '#,KK,KK,KK,,,,#H.....#',
   '#,,,,,O,,,,,,,#......#',
-  '#,KK,KK,KK,,,L#H....V#',
+  '#,KK,KK,KK,,,,#H....V#',
   '######################',
 ]];
 const MH = MAPS[0].length, MW = MAPS[0][0].length;
@@ -347,6 +347,7 @@ const LIGHTS = [];         // { f, r, c, room, light, mat, on, base }
 const DOORS = new Map();   // key "f,r,c"
 const INTER = [];
 const CHECKPOINTS = [];
+const SWITCH_LEDS = [];
 let SPAWN = { r: 5, c: 2 };
 const dkey = (f, r, c) => f + ',' + r + ',' + c;
 
@@ -483,10 +484,13 @@ function buildFloor(f) {
       }
       case 'L': {
         const g = new THREE.Group();
-        box(.1, .16, .02, MAT.white, 0, 1.2, .01, g);
-        const nub = box(.03, .06, .03, MAT.crt, 0, 1.2, .03, g);
-        mount(g); F.ray.push(g);
+        box(.2, .3, .03, MAT.white, 0, 1.2, .015, g);
+        const nub = box(.06, .1, .04, MAT.crt, 0, 1.2, .045, g);
         const room = roomAt(f, r, c);
+        const led = new THREE.MeshBasicMaterial({ color: 0xffa040 });
+        box(.04, .04, .02, led, 0, 1.39, .035, g);
+        SWITCH_LEDS.push({ f, room, led });
+        mount(g); F.ray.push(g);
         setInter(g, { label: () => roomLightsOn(f, room) ? '[E] 關燈' : '[E] 開燈', action: () => toggleRoom(f, room, nub) });
         break;
       }
@@ -1218,7 +1222,9 @@ function renderTasks() {
       h += li(`刷巡邏點（${cps}/4）`, cps === 4);
       const lightsDone = off === 3 && G.flags.relit;
       const relitNote = (G.flags.relit && off < 3) ? '<span class="warn">（燈又亮了？）</span>' : '';
-      h += li(`關掉二樓辦公室 A・B・C 的燈（${off}/3）${relitNote}`, lightsDone);
+      const which = OFFICES.map(o => `${o.n}${roomLightsOn(1, officeRoom(o)) ? '<span class="warn">亮</span>' : '✓'}`).join('・');
+      h += li(`關掉二樓辦公室的燈（${which}）${relitNote}`, lightsDone);
+      if (!lightsDone) h += '<div style="font-size:12px;color:#8a8478">　開關在每間辦公室門邊的牆上（橘燈＝燈亮著）</div>';
       if (G.phase === 'return') h += li('回警衛室查看監視器', false, 'warn');
       break;
     }
@@ -1345,6 +1351,7 @@ function updateLights(dt) {
     const k = .08 + .92 * v; l.mat.color.setRGB(.95 * k, .96 * k, k);
   }
   MAT.vend.emissiveIntensity = G.power ? .9 : 0;
+  for (const s of SWITCH_LEDS) s.led.color.setHex(!G.power ? 0x111111 : roomLightsOn(s.f, s.room) ? 0xffa040 : 0x30ff60);
   const near = LIGHTS.some(l => l.f === P.f && l.on && G.power && Math.hypot(center(l.f, l.r, l.c).x - P.x, center(l.f, l.r, l.c).z - P.z) < 6);
   if (A.hum) A.hum.gain.value += (((near ? .018 : .004) * (G.power ? 1 : 0)) - A.hum.gain.value) * Math.min(1, dt * 3);
   flashlight.intensity = (G.flash && G.mode === 'walk') ? 1.7 : 0;
