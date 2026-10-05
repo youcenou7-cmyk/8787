@@ -8,9 +8,9 @@
 <link href="https://fonts.googleapis.com/css2?family=VT323&family=Noto+Serif+TC:wght@500;700&display=swap" rel="stylesheet">
 <style>
   *{box-sizing:border-box}
-  html,body{margin:0;height:100%;overflow:hidden;background:#000;color:#ddd;
+  html,body{margin:0;height:100%;overflow:hidden;background:#000;color:#ddd;touch-action:none;-webkit-touch-callout:none;-webkit-user-select:none;
     font-family:'Noto Serif TC','PingFang TC','Microsoft JhengHei',serif;user-select:none}
-  #game{position:fixed;inset:0;width:100vw;height:100vh;image-rendering:pixelated;display:block}
+  #game{position:fixed;inset:0;width:100%;height:100%;image-rendering:pixelated;display:block}
   #noise{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;opacity:.07;image-rendering:pixelated;mix-blend-mode:screen}
   #scan{position:fixed;inset:0;pointer-events:none;
     background:repeating-linear-gradient(0deg,rgba(0,0,0,.22) 0 1px,transparent 1px 3px)}
@@ -65,7 +65,42 @@
   #note .paper h4{text-align:center;font-size:22px;margin:0 0 14px;letter-spacing:.3em}
   #note .paper .red{color:#8a1010}
   #note .close{margin-top:18px;color:#999;font-size:14px}
-  #mobile{position:fixed;left:0;right:0;bottom:0;padding:10px;background:#300;color:#fcc;text-align:center;font-size:14px;display:none}
+  #mobile{position:fixed;left:0;right:0;top:0;padding:8px;background:rgba(60,0,0,.85);color:#fcc;text-align:center;font-size:14px;display:none;pointer-events:none;z-index:5}
+  @media (orientation: portrait){ body.touch #mobile{display:block} }
+  /* ---- touch controls ---- */
+  #touch{position:fixed;inset:0;display:none}
+  body.touch.playing #touch{display:block}
+  #lookLayer{position:absolute;inset:0}
+  #joyHint{position:absolute;left:calc(46px + env(safe-area-inset-left,0px));bottom:calc(40px + env(safe-area-inset-bottom,0px));width:110px;height:110px;border-radius:50%;
+    border:2px dashed rgba(255,255,255,.18);pointer-events:none;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.3);font-size:13px}
+  #joyBase{position:absolute;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:50%;border:2px solid rgba(255,255,255,.35);background:rgba(255,255,255,.06);display:none;pointer-events:none}
+  #joyKnob{position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px 0 0 -26px;border-radius:50%;background:rgba(255,255,255,.35)}
+  .tb{position:absolute;border-radius:50%;border:2px solid rgba(255,255,255,.35);background:rgba(20,20,20,.45);color:#ddd;
+    font-family:inherit;letter-spacing:0;padding:0;display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.25;touch-action:none}
+  .tb:active,.tb.press{background:rgba(160,30,30,.55)}
+  #tAct{right:calc(26px + env(safe-area-inset-right,0px));bottom:calc(70px + env(safe-area-inset-bottom,0px));width:96px;height:96px;font-size:15px;opacity:.55}
+  #tAct.on{opacity:1;border-color:#e8c070;color:#fff;background:rgba(90,60,10,.55)}
+  #tFlash{right:calc(134px + env(safe-area-inset-right,0px));bottom:calc(24px + env(safe-area-inset-bottom,0px));width:70px;height:70px;font-size:12px}
+  #tPause{left:50%;top:calc(10px + env(safe-area-inset-top,0px));transform:translateX(-50%);width:44px;height:44px;font-size:16px}
+  #camBtns{position:absolute;left:0;right:0;bottom:calc(16px + env(safe-area-inset-bottom,0px));display:none;justify-content:center;gap:12px;padding:0 16px}
+  #camBtns button{font-size:16px;padding:12px 18px;letter-spacing:.1em;background:rgba(0,0,0,.55);border-color:rgba(220,255,220,.5);color:#e8ffe8;touch-action:none}
+  body.touch #camui .bl{display:none}
+  body.touch #flash{display:none}
+  body.touch #cross{width:6px;height:6px;margin:-3px 0 0 -3px}
+  @media (max-width: 900px), (max-height: 500px){
+    #tasks{left:14px;top:12px;font-size:12px;line-height:1.55;max-width:46vw}
+    #tasks .t{font-size:11px}
+    #clock{right:14px;top:8px}
+    #clock .time{font-size:24px} #clock .fl{font-size:16px} #rec{font-size:16px}
+    #sub{font-size:15px;bottom:24%;padding:6px 14px;max-width:70vw}
+    #prompt{font-size:14px}
+    #camui .tl,#camui .tr{font-size:20px;top:14px} #camui .br{font-size:18px;bottom:auto;top:44px;right:22px}
+    #camui .msg{font-size:22px}
+    #note .paper{padding:18px 22px;font-size:13.5px;line-height:1.75;max-height:84vh;overflow:auto}
+    #note .paper h4{font-size:17px;margin-bottom:8px}
+    #screen p{line-height:1.8}
+    #screen .help{margin-top:18px}
+  }
 </style>
 </head>
 <body>
@@ -90,12 +125,21 @@
   <div class="br" id="camStrikes"></div>
   <div class="msg" id="camMsg"></div>
 </div>
+<div id="touch">
+  <div id="lookLayer"></div>
+  <div id="joyHint">移動</div>
+  <div id="joyBase"><div id="joyKnob"></div></div>
+  <button id="tPause" class="tb" aria-label="暫停">Ⅱ</button>
+  <button id="tFlash" class="tb">手電筒</button>
+  <button id="tAct" class="tb">互動</button>
+  <div id="camBtns"><button id="tPrev">◀</button><button id="tReport">回報異常</button><button id="tNext">▶</button><button id="tExit">離開</button></div>
+</div>
 <div id="fade"></div>
 <canvas id="scare"></canvas>
 <div id="screen" class="overlay"></div>
 <div id="pause" class="overlay">
   <h3>暫停</h3>
-  <p>WASD 移動　滑鼠 視角　Shift 奔跑<br>E 互動　F 手電筒　Esc 暫停</p>
+  <p id="pauseHelp">WASD 移動　滑鼠 視角　Shift 奔跑<br>E 互動　F 手電筒　Esc 暫停</p>
   <button id="resumeBtn">點擊繼續</button>
 </div>
 <div id="note" class="overlay">
@@ -113,7 +157,7 @@
   </div>
   <div class="close">[E] 或 點擊 關閉</div>
 </div>
-<div id="mobile">本遊戲需要鍵盤與滑鼠，請使用電腦遊玩。</div>
+<div id="mobile">建議將手機橫放遊玩</div>
 
 <script src="three.min.js"></script>
 <script>
@@ -122,6 +166,13 @@
    夜間警備 NIGHT SHIFT — a small first-person night-guard horror game
    ===================================================================== */
 const $ = id => document.getElementById(id);
+let IS_TOUCH = matchMedia('(pointer: coarse)').matches;
+function enableTouch() {
+  IS_TOUCH = true; document.body.classList.add('touch');
+  const ph = document.getElementById('pauseHelp');
+  if (ph) ph.innerHTML = '左半邊拖曳：移動（推到底＝奔跑）<br>右半邊滑動：轉動視角';
+  try { resize(); } catch (e) {}
+}
 const rand = (a, b) => a + Math.random() * (b - a);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
@@ -215,7 +266,7 @@ flashlight.target.position.set(0, -0.1, -1);
 camera.add(flashlight); camera.add(flashlight.target);
 let RS = 2.6;
 function resize() {
-  RS = innerWidth > 1700 ? 3 : 2.5;
+  RS = IS_TOUCH ? 2.4 : innerWidth > 1700 ? 3 : 2.5;
   renderer.setSize(Math.ceil(innerWidth / RS), Math.ceil(innerHeight / RS), false);
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
   for (const c of CAMS) { c.cam.aspect = camera.aspect; c.cam.updateProjectionMatrix(); }
@@ -1339,7 +1390,7 @@ function fadeOut() { const f = $('fade'); f.style.transition = 'opacity .7s'; f.
 function fadeIn() { const f = $('fade'); f.style.transition = 'opacity 1.2s'; f.style.background = '#000'; f.style.opacity = 0; }
 function showScreen(html) { const s = $('screen'); s.innerHTML = html; s.style.display = 'flex'; }
 function hideScreen() { $('screen').style.display = 'none'; $('screen').onclick = null; }
-function lockPointer() { try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (e) {} }
+function lockPointer() { if (IS_TOUCH) return; try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (e) {} }
 function fmtClock(m) {
   const tot = (23 * 60 + Math.floor(m)) % 1440, h = Math.floor(tot / 60), mi = tot % 60;
   return `${h >= 12 ? 'PM' : 'AM'} ${(h % 12) || 12}:${String(mi).padStart(2, '0')}`;
@@ -1374,19 +1425,93 @@ function renderTasks() {
 }
 
 /* ---------------------------------------------------------------- INPUT */
+function actInteract() { if (G.mode === 'note') { closeNote(); return; } if (G.mode === 'walk' && G.hover) { const h = G.hover; G.hover = null; h.action(); } }
+function actFlash() {
+  if (G.mode !== 'walk') return;
+  if (!G.flash && G.battery <= 0) { SFX.click(); mono('（沒電了……得找備用電池。）'); }
+  else { G.flash = !G.flash; SFX.click(); }
+}
+function camStep(d) { if (G.mode !== 'cam') return; G.camIdx = (G.camIdx + CAMS.length + d) % CAMS.length; G.camStatic = .25; SFX.static(); }
+function pauseGame() {
+  if (!G.running || G.paused || !['walk', 'cam', 'cut', 'note'].includes(G.mode)) return;
+  G.paused = true; $('pause').style.display = 'flex';
+  if (TOUCH.joy) touchEndJoy();
+}
+
+/* touch controls: left half = floating joystick, right half = look / swipe cameras */
+const TOUCH = { joyId: null, jx: 0, jy: 0, joy: null, lookId: null, lx: 0, ly: 0, sx: 0 };
+function touchEndJoy() { TOUCH.joyId = null; TOUCH.joy = null; $('joyBase').style.display = 'none'; $('joyHint').style.display = 'flex'; }
+const lookLayer = $('lookLayer');
+lookLayer.addEventListener('touchstart', e => {
+  e.preventDefault();
+  if (!G.running || G.paused) return;
+  if (G.mode === 'note') { closeNote(); return; }
+  for (const t of e.changedTouches) {
+    if (t.clientX < innerWidth * .45 && TOUCH.joyId === null && G.mode === 'walk') {
+      TOUCH.joyId = t.identifier; TOUCH.jx = t.clientX; TOUCH.jy = t.clientY; TOUCH.joy = { x: 0, y: 0 };
+      const b = $('joyBase'); b.style.left = t.clientX + 'px'; b.style.top = t.clientY + 'px'; b.style.display = 'block';
+      $('joyKnob').style.transform = ''; $('joyHint').style.display = 'none';
+    } else if (TOUCH.lookId === null) {
+      TOUCH.lookId = t.identifier; TOUCH.lx = TOUCH.sx = t.clientX; TOUCH.ly = t.clientY;
+    }
+  }
+}, { passive: false });
+lookLayer.addEventListener('touchmove', e => {
+  e.preventDefault();
+  for (const t of e.changedTouches) {
+    if (t.identifier === TOUCH.joyId) {
+      let dx = t.clientX - TOUCH.jx, dy = t.clientY - TOUCH.jy; const l = Math.hypot(dx, dy), R = 55;
+      if (l > R) { dx *= R / l; dy *= R / l; }
+      TOUCH.joy = { x: dx / R, y: dy / R };
+      $('joyKnob').style.transform = `translate(${dx}px,${dy}px)`;
+    } else if (t.identifier === TOUCH.lookId) {
+      const dx = t.clientX - TOUCH.lx, dy = t.clientY - TOUCH.ly; TOUCH.lx = t.clientX; TOUCH.ly = t.clientY;
+      if (G.mode === 'walk' && !G.paused) { P.yaw -= dx * .0058; P.pitch = clamp(P.pitch - dy * .0058, -1.45, 1.45); }
+    }
+  }
+}, { passive: false });
+const touchEnd = e => {
+  for (const t of e.changedTouches) {
+    if (t.identifier === TOUCH.joyId) touchEndJoy();
+    else if (t.identifier === TOUCH.lookId) {
+      TOUCH.lookId = null;
+      const sw = t.clientX - TOUCH.sx;
+      if (G.mode === 'cam' && Math.abs(sw) > 50) camStep(sw < 0 ? 1 : -1);
+    }
+  }
+};
+lookLayer.addEventListener('touchend', touchEnd); lookLayer.addEventListener('touchcancel', touchEnd);
+const tapBtn = (id, fn) => {
+  const el = $(id);
+  el.addEventListener('touchstart', e => { e.preventDefault(); e.stopPropagation(); el.classList.add('press'); if (G.running && !G.paused) fn(); }, { passive: false });
+  el.addEventListener('touchend', () => el.classList.remove('press'));
+  el.addEventListener('click', () => { if (G.running && !G.paused) fn(); });
+};
+tapBtn('tAct', actInteract); tapBtn('tFlash', actFlash); tapBtn('tPause', pauseGame);
+tapBtn('tPrev', () => camStep(-1)); tapBtn('tNext', () => camStep(1)); tapBtn('tReport', () => G.mode === 'cam' && report()); tapBtn('tExit', () => G.mode === 'cam' && exitCam());
+window.addEventListener('touchstart', () => { if (!IS_TOUCH) enableTouch(); }, { passive: true, once: true });
+document.addEventListener('visibilitychange', () => { if (document.hidden) pauseGame(); });
+let touchUiState = '';
+function updateTouchUI() {
+  if (!IS_TOUCH) return;
+  const st = (G.running ? 'p' : '') + G.mode + (G.paused ? 'x' : '');
+  if (st === touchUiState) return; touchUiState = st;
+  document.body.classList.toggle('playing', G.running && G.mode !== 'dead' && G.mode !== 'end');
+  const walk = G.mode === 'walk' || G.mode === 'note' || G.mode === 'cut';
+  for (const id of ['tAct', 'tFlash', 'joyHint']) $(id).style.display = walk ? 'flex' : 'none';
+  $('camBtns').style.display = G.mode === 'cam' ? 'flex' : 'none';
+  if (!walk && TOUCH.joy) touchEndJoy();
+}
 document.addEventListener('keydown', e => {
   keys[e.code] = true;
   if (!G.running || G.paused) return;
   if (G.mode === 'note' && (e.code === 'KeyE' || e.code === 'Space')) { closeNote(); return; }
   if (G.mode === 'walk') {
-    if (e.code === 'KeyE' && G.hover) { const h = G.hover; G.hover = null; h.action(); }
-    if (e.code === 'KeyF') {
-      if (!G.flash && G.battery <= 0) { SFX.click(); mono('（沒電了……得找備用電池。）'); }
-      else { G.flash = !G.flash; SFX.click(); }
-    }
+    if (e.code === 'KeyE') actInteract();
+    if (e.code === 'KeyF') actFlash();
   } else if (G.mode === 'cam') {
-    if (e.code === 'KeyA' || e.code === 'ArrowLeft') { G.camIdx = (G.camIdx + CAMS.length - 1) % CAMS.length; G.camStatic = .25; SFX.static(); }
-    if (e.code === 'KeyD' || e.code === 'ArrowRight') { G.camIdx = (G.camIdx + 1) % CAMS.length; G.camStatic = .25; SFX.static(); }
+    if (e.code === 'KeyA' || e.code === 'ArrowLeft') camStep(-1);
+    if (e.code === 'KeyD' || e.code === 'ArrowRight') camStep(1);
     if (e.code === 'KeyR') report();
     if (e.code === 'KeyE' || e.code === 'KeyS' || e.code === 'KeyQ') exitCam();
   }
@@ -1398,7 +1523,7 @@ document.addEventListener('mousemove', e => {
   P.yaw -= e.movementX * .0022; P.pitch = clamp(P.pitch - e.movementY * .0022, -1.45, 1.45);
 });
 canvas.addEventListener('mousedown', () => {
-  if (!G.running) return;
+  if (!G.running || IS_TOUCH) return;
   if (document.pointerLockElement !== canvas) { lockPointer(); return; }
   if (G.mode === 'note') closeNote();
   else if (G.mode === 'cam') { G.camIdx = (G.camIdx + 1) % CAMS.length; G.camStatic = .25; SFX.static(); }
@@ -1409,7 +1534,7 @@ document.addEventListener('pointerlockchange', () => {
   if (!locked && G.running && ['walk', 'cam', 'cut', 'note'].includes(G.mode)) { G.paused = true; $('pause').style.display = 'flex'; }
   else if (locked) { G.paused = false; $('pause').style.display = 'none'; }
 });
-$('resumeBtn').onclick = () => { initAudio(); lockPointer(); };
+$('resumeBtn').onclick = () => { initAudio(); if (IS_TOUCH) { G.paused = false; $('pause').style.display = 'none'; } else lockPointer(); };
 window.addEventListener('resize', resize);
 window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 
@@ -1422,14 +1547,17 @@ function updatePlayer(dt) {
   let mx = 0, mz = 0;
   if (keys.KeyW || keys.ArrowUp) mz -= 1; if (keys.KeyS || keys.ArrowDown) mz += 1;
   if (keys.KeyA || keys.ArrowLeft) mx -= 1; if (keys.KeyD || keys.ArrowRight) mx += 1;
-  const moving = mx || mz;
-  const run = (keys.ShiftLeft || keys.ShiftRight) && moving && !P.tired;
+  let jm = 0;
+  if (TOUCH.joy) { mx += TOUCH.joy.x; mz += TOUCH.joy.y; jm = Math.min(1, Math.hypot(TOUCH.joy.x, TOUCH.joy.y)); }
+  const moving = Math.hypot(mx, mz) > .15;
+  const run = (keys.ShiftLeft || keys.ShiftRight || jm > .93) && moving && !P.tired;
   if (run) { P.stam -= dt / 8; if (P.stam <= 0) { P.stam = 0; P.tired = true; } }
   else { P.stam = Math.min(1, P.stam + dt / 5); if (P.tired && P.stam > .3) P.tired = false; }
   $('stam').style.opacity = P.stam < .99 ? 1 : 0; $('stam').firstChild.style.width = (P.stam * 100) + '%';
   if (moving) {
     const l = Math.hypot(mx, mz); mx /= l; mz /= l;
-    const sp = (run ? 4.8 : 2.6) * dt, s = Math.sin(P.yaw), c = Math.cos(P.yaw);
+    const analog = jm > 0 && !run ? clamp(jm * 1.25, .35, 1) : 1;
+    const sp = (run ? 4.8 : 2.6) * analog * dt, s = Math.sin(P.yaw), c = Math.cos(P.yaw);
     const dx = (c * mx + s * mz) * sp, dz = (-s * mx + c * mz) * sp;
     const ox = P.x, oz = P.z;
     if (!collides(P.x + dx, P.z, P.f, .3)) P.x += dx;
@@ -1454,7 +1582,12 @@ function updateHover() {
     if (def) { label = def.label(); if (label) G.hover = def; }
   }
   const pr = $('prompt');
-  if (label) { pr.textContent = label; pr.style.display = 'block'; } else pr.style.display = 'none';
+  const shown = label && IS_TOUCH ? label.replace('[E] ', '') : label;
+  if (label) { pr.textContent = shown; pr.style.display = 'block'; } else pr.style.display = 'none';
+  if (IS_TOUCH) {
+    const a = $('tAct'), t = label && G.hover ? shown : '互動';
+    if (a.textContent !== t) { a.textContent = t; a.classList.toggle('on', !!(label && G.hover)); }
+  }
 }
 
 function ghostVisible(obj, f, maxDist) {
@@ -1530,7 +1663,11 @@ function updateLights(dt) {
   flashlight.intensity = fi;
   const bars = Math.ceil(G.battery * 4);
   const ft = '手電筒 [F]：' + (G.flash ? 'ON' : 'OFF') + '　電池 ' + '▮'.repeat(bars) + '▯'.repeat(4 - bars);
-  if ($('flash').textContent !== ft) { $('flash').textContent = ft; $('flash').style.color = G.battery < .25 ? '#e07a6a' : '#c9c19f'; }
+  if ($('flash').textContent !== ft) {
+    $('flash').textContent = ft; $('flash').style.color = G.battery < .25 ? '#e07a6a' : '#c9c19f';
+    $('tFlash').innerHTML = `手電筒<br>${G.flash ? 'ON' : 'OFF'}<br>${'▮'.repeat(bars)}${'▯'.repeat(4 - bars)}`;
+    $('tFlash').style.color = G.battery < .25 ? '#e07a6a' : '#ddd';
+  }
 }
 function updateDoors(dt) {
   DOORS.forEach(d => {
@@ -1659,6 +1796,7 @@ let last = performance.now();
 function loop(now) {
   const dt = Math.min(.05, (now - last) / 1000); last = now;
   update(dt);
+  updateTouchUI();
   updateNoise();
   render();
   requestAnimationFrame(loop);
@@ -1677,13 +1815,15 @@ function init() {
   camera.position.set(P.x, EYE, P.z);
   renderer.compile(scene, camera);
   requestAnimationFrame(loop);
-  if (matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: fine)').matches) $('mobile').style.display = 'block';
+  if (IS_TOUCH) enableTouch();
   titleScreen();
 }
 function titleScreen() {
   showScreen(`<h1>夜間警備</h1><h2>NIGHT SHIFT</h2>
     <button id="startBtn">開始遊戲</button>
-    <div class="help">WASD 移動 ｜ 滑鼠 視角 ｜ Shift 奔跑 ｜ E 互動 ｜ F 手電筒 ｜ Esc 暫停<br>建議戴上耳機，在關燈的房間遊玩。</div>
+    <div class="help">${IS_TOUCH
+      ? '左半邊拖曳：移動（推到底＝奔跑）｜右半邊滑動：轉動視角<br>右下按鈕：互動・手電筒｜建議橫放手機、戴上耳機遊玩。'
+      : 'WASD 移動 ｜ 滑鼠 視角 ｜ Shift 奔跑 ｜ E 互動 ｜ F 手電筒 ｜ Esc 暫停<br>建議戴上耳機，在關燈的房間遊玩。'}</div>
     <div class="small">受 Chilla's Art《Night Security》啟發的原創同人小品</div>`);
   $('startBtn').onclick = () => { initAudio(); intro(); };
 }
@@ -1697,7 +1837,11 @@ function intro() {
   let i = 0;
   const next = () => {
     if (i < paras.length) { showScreen(`<p>${paras[i]}</p><div class="cont">點擊繼續</div>`); i++; }
-    else { hideScreen(); lockPointer(); startGame(); }
+    else {
+      hideScreen(); lockPointer();
+      if (IS_TOUCH) { try { const r = document.documentElement.requestFullscreen && document.documentElement.requestFullscreen(); if (r && r.catch) r.catch(() => {}); } catch (e) {} }
+      startGame();
+    }
   };
   next();
   setTimeout(() => { $('screen').onclick = next; }, 50);
