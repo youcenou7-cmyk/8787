@@ -1,0 +1,1445 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>夜警 YAKEI</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;}
+  html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#000;color:#eee;
+    font-family:"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP","Noto Serif TC","PMingLiU",serif;touch-action:none;}
+  canvas{display:block;position:fixed;inset:0;width:100%;height:100%;}
+  .layer{position:fixed;inset:0;pointer-events:none;}
+  #fade{background:#000;opacity:1;transition:opacity 1s linear;z-index:20;}
+  #card{z-index:21;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;
+    text-align:center;padding:0 24px;opacity:0;transition:opacity .9s;}
+  #card .jp{font-size:clamp(17px,2.6vw,26px);letter-spacing:.12em;text-shadow:0 0 6px #000;}
+  #card .zh{font-size:clamp(12px,1.6vw,15px);color:#9a9a9a;letter-spacing:.1em;}
+  #title{z-index:30;pointer-events:auto;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    background:radial-gradient(ellipse at center,rgba(20,24,18,.55),#000 75%);cursor:pointer;text-align:center;padding:0 16px;}
+  #title h1{font-size:clamp(64px,14vw,150px);margin:0;letter-spacing:.25em;font-weight:700;color:#d8d8cc;
+    text-shadow:0 0 18px rgba(160,0,0,.6),3px 0 0 rgba(255,0,0,.35),-3px 0 0 rgba(0,180,255,.25);animation:jit 3s infinite;}
+  #title .sub{letter-spacing:.6em;color:#8a8a80;font-size:clamp(11px,1.6vw,15px);margin-top:4px;}
+  #title .start{margin-top:46px;font-size:clamp(14px,2vw,18px);letter-spacing:.3em;animation:blink 1.6s infinite;}
+  #title .help{margin-top:28px;color:#6d6d66;font-size:12px;line-height:1.9;letter-spacing:.08em;font-family:monospace;}
+  @keyframes blink{50%{opacity:.25}}
+  @keyframes jit{0%,92%,100%{transform:none}93%{transform:translate(3px,-1px) skewX(4deg)}95%{transform:translate(-4px,1px)}97%{transform:translate(2px,0) skewX(-3deg)}}
+  #obj{z-index:10;top:16px;left:18px;right:auto;bottom:auto;font-size:13px;color:#cfcfc4;letter-spacing:.06em;
+    text-shadow:0 0 4px #000,0 0 2px #000;opacity:0;transition:opacity .6s;max-width:70vw;}
+  #obj b{color:#e9d9a0;font-weight:400;}
+  #obj .zh{color:#8d8d86;font-size:11px;}
+  #cross{z-index:10;left:50%;top:50%;width:4px;height:4px;margin:-2px 0 0 -2px;border-radius:50%;background:rgba(255,255,255,.55);inset:auto;}
+  #prompt{z-index:10;inset:auto;left:50%;top:calc(50% + 26px);transform:translateX(-50%);font-size:14px;color:#fff;
+    text-shadow:0 0 4px #000;letter-spacing:.1em;opacity:0;transition:opacity .15s;white-space:nowrap;}
+  #prompt kbd{border:1px solid #aaa;border-radius:3px;padding:0 5px;margin-right:6px;font-family:monospace;font-size:12px;}
+  #dlg{z-index:15;inset:auto;left:0;right:0;bottom:7%;text-align:center;display:none;padding:0 16px;}
+  #dlg .jp{font-size:clamp(18px,3vw,34px);color:#fff;letter-spacing:.08em;text-shadow:0 0 6px #000,0 0 3px #000,0 0 12px #000;}
+  #dlg .zh{font-size:clamp(12px,1.6vw,16px);color:#bdbdb4;margin-top:6px;text-shadow:0 0 4px #000;letter-spacing:.06em;}
+  #dlg .sp{font-size:12px;color:#9c9c90;margin-bottom:4px;letter-spacing:.2em;}
+  #dlg .arrow{margin-top:10px;color:#ddd;font-size:22px;animation:bob 1s infinite;opacity:0;}
+  @keyframes bob{50%{transform:translateY(5px)}}
+  #camhud{z-index:12;display:none;font-family:"Courier New",monospace;color:#f2f2f2;text-shadow:0 0 3px #000;}
+  #camhud .corner{position:absolute;width:40px;height:40px;border:2px solid rgba(255,255,255,.75);}
+  #camhud .tl{left:20px;top:20px;border-right:none;border-bottom:none}
+  #camhud .tr{right:20px;top:20px;border-left:none;border-bottom:none}
+  #camhud .bl{left:20px;bottom:20px;border-right:none;border-top:none}
+  #camhud .br{right:20px;bottom:20px;border-left:none;border-top:none}
+  #camhud .info{position:absolute;left:36px;top:32px;font-size:clamp(14px,2vw,20px);line-height:1.5;}
+  #camhud .rec{position:absolute;right:38px;top:32px;font-size:clamp(14px,2vw,20px);}
+  #camhud .rec i{display:inline-block;width:12px;height:12px;border-radius:50%;background:#f22;margin-right:8px;animation:blink 1s infinite;}
+  #camhud .bar{position:absolute;left:0;right:0;bottom:34px;display:flex;justify-content:center;gap:10px;pointer-events:auto;flex-wrap:wrap;padding:0 50px;}
+  #camhud button{font-family:inherit;font-size:14px;background:rgba(0,0,0,.55);color:#eee;border:1px solid rgba(255,255,255,.6);
+    padding:8px 14px;cursor:pointer;letter-spacing:.08em;}
+  #camhud button:hover{background:rgba(255,255,255,.15)}
+  #camhud button.report{border-color:#f55;color:#ffb3b3}
+  #camhud .msg{position:absolute;left:0;right:0;top:44%;text-align:center;font-size:clamp(16px,2.4vw,24px);letter-spacing:.15em;opacity:0;transition:opacity .3s;}
+  #camhud .count{position:absolute;right:38px;top:64px;font-size:13px;color:#ccc;}
+  #over{z-index:40;display:none;pointer-events:auto;background:rgba(0,0,0,.85);flex-direction:column;align-items:center;justify-content:center;text-align:center;}
+  #over h2{font-size:clamp(40px,8vw,80px);color:#b00;letter-spacing:.3em;margin:0;text-shadow:0 0 20px #600;}
+  #over p{color:#999;letter-spacing:.1em;}
+  #over button,#endbtn{margin-top:20px;font-family:inherit;font-size:16px;background:none;color:#ddd;border:1px solid #777;padding:10px 26px;cursor:pointer;letter-spacing:.2em;}
+  #touch{z-index:14;display:none;}
+  #stick{position:absolute;width:110px;height:110px;border-radius:50%;border:2px solid rgba(255,255,255,.25);display:none;}
+  #stick i{position:absolute;left:50%;top:50%;width:46px;height:46px;margin:-23px 0 0 -23px;border-radius:50%;background:rgba(255,255,255,.25);}
+  .tbtn{position:absolute;pointer-events:auto;width:64px;height:64px;border-radius:50%;border:1px solid rgba(255,255,255,.45);
+    background:rgba(0,0,0,.35);color:#eee;font-size:13px;display:flex;align-items:center;justify-content:center;font-family:inherit;}
+  #tUse{right:26px;bottom:40px;width:76px;height:76px;font-size:15px}
+  #tLight{right:116px;bottom:30px;}
+  #flash{z-index:19;background:#fff;opacity:0;}
+</style>
+</head>
+<body>
+<div id="fade" class="layer"></div>
+<div id="flash" class="layer"></div>
+<div id="card" class="layer"></div>
+<div id="title" class="layer">
+  <h1>夜警</h1>
+  <div class="sub">YAKEI ─ NIGHT SHIFT</div>
+  <div class="start">クリックして開始　/　點擊開始</div>
+  <div class="help">WASD 移動 ・ SHIFT 跑 ・ 滑鼠 視角 ・ E 調查 ・ F 手電筒<br>監視器：← → 切換 ・ R 回報異常 ・ Q 離開<br>建議戴耳機遊玩 🎧</div>
+</div>
+<div id="obj" class="layer"></div>
+<div id="cross" class="layer"></div>
+<div id="prompt" class="layer"></div>
+<div id="dlg" class="layer"><div class="sp"></div><div class="jp"></div><div class="zh"></div><div class="arrow">▼</div></div>
+<div id="camhud" class="layer">
+  <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+  <div class="info"><div id="camName">CAM 01</div><div id="camTime">02:00:00</div></div>
+  <div class="rec"><i></i>REC</div>
+  <div class="count" id="camCount"></div>
+  <div class="msg" id="camMsg"></div>
+  <div class="bar">
+    <button id="bPrev">◀ 前</button><button id="bNext">次 ▶</button>
+    <button id="bReport" class="report">異常報告 [R]</button><button id="bExit">離席 [Q]</button>
+  </div>
+</div>
+<div id="touch" class="layer">
+  <div id="stick"><i></i></div>
+  <button class="tbtn" id="tUse">調べる</button>
+  <button class="tbtn" id="tLight">ライト</button>
+</div>
+<div id="over" class="layer"><h2>死</h2><p id="overMsg"></p><button id="retry">もう一度 / 重試</button></div>
+
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}</script>
+<script type="module">
+import * as THREE from 'three';
+
+/* =========================================================
+   基本設定
+   ========================================================= */
+const $ = id => document.getElementById(id);
+const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+const RES = 0.5;                                  // 內部解析度（低解析度＝VHS 感）
+const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
+renderer.setPixelRatio(1);
+renderer.setSize(innerWidth, innerHeight);
+document.body.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x000000);
+scene.fog = new THREE.FogExp2(0x000000, 0.08);
+const camera = new THREE.PerspectiveCamera(68, innerWidth / innerHeight, 0.05, 90);
+camera.rotation.order = 'YXZ';
+scene.add(camera);
+
+const mainRT = new THREE.WebGLRenderTarget(2, 2, { depthBuffer: true });
+function resize() {
+  renderer.setSize(innerWidth, innerHeight);
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  secCams.forEach(c => { c.aspect = camera.aspect; c.updateProjectionMatrix(); });
+  mainRT.setSize(Math.max(2, Math.floor(innerWidth * RES)), Math.max(2, Math.floor(innerHeight * RES)));
+  post.uniforms.res.value.set(innerWidth, innerHeight);
+}
+
+/* ---------- VHS 後製 ---------- */
+const post = new THREE.ShaderMaterial({
+  uniforms: {
+    tDiffuse: { value: mainRT.texture }, time: { value: 0 }, glitch: { value: 0 },
+    tint: { value: new THREE.Vector3(1, 1, 1) }, nv: { value: 0 }, res: { value: new THREE.Vector2(1, 1) }, gain: { value: 1 }
+  },
+  vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.,1.); }`,
+  fragmentShader: `
+    uniform sampler2D tDiffuse; uniform float time, glitch, nv, gain; uniform vec3 tint; uniform vec2 res;
+    varying vec2 vUv;
+    float rnd(vec2 c){ return fract(sin(dot(c, vec2(12.9898,78.233))) * 43758.5453); }
+    void main(){
+      vec2 cc = vUv - .5; float r2 = dot(cc,cc);
+      vec2 uv = .5 + cc * (1. + .07*r2 + .05*nv*r2);
+      float ln = floor(uv.y * 220.);
+      float sh = (rnd(vec2(ln, floor(time*24.))) - .5) * .03 * glitch;
+      sh += sin(uv.y*700. + time*12.) * .0005;
+      float band = smoothstep(.0,.03, abs(fract(uv.y*.7 - time*.06) - .5) - .45);
+      sh += (1.-band) * .004;
+      uv.x += sh;
+      float ca = .0018 + .012*glitch + .006*r2;
+      vec3 col;
+      col.r = texture2D(tDiffuse, uv + vec2(ca,0.)).r;
+      col.g = texture2D(tDiffuse, uv).g;
+      col.b = texture2D(tDiffuse, uv - vec2(ca,0.)).b;
+      // soft glow
+      vec3 blur = texture2D(tDiffuse, uv + vec2(.004,.003)).rgb + texture2D(tDiffuse, uv - vec2(.004,.003)).rgb
+                + texture2D(tDiffuse, uv + vec2(-.004,.004)).rgb + texture2D(tDiffuse, uv + vec2(.004,-.004)).rgb;
+      col += max(blur*.25 - .35, 0.) * .6;
+      col *= gain;
+      float l = dot(col, vec3(.299,.587,.114));
+      col = mix(vec3(l), col, mix(.72, .0, nv));
+      col *= tint;
+      col = mix(col, vec3(l*.8, l*1.05, l*.85) * 1.1, nv*.6);
+      col = pow(max(col, 0.), vec3(1./2.2));
+      col *= .93 + .07 * sin(vUv.y * res.y * 1.3);
+      col += (rnd(vUv * res * .5 + fract(time)) - .5) * (.07 + .1*nv + .25*glitch);
+      col *= smoothstep(.9, .25, length(cc * vec2(1., 1.15)));
+      if (uv.x < 0. || uv.x > 1. || uv.y < 0. || uv.y > 1.) col = vec3(0.);
+      if (glitch > .6 && rnd(vec2(floor(time*30.), ln)) > .985) col = vec3(rnd(uv+time));
+      gl_FragColor = vec4(col, 1.);
+    }`
+});
+const postScene = new THREE.Scene();
+const postCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+postScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), post));
+
+/* =========================================================
+   程序化貼圖
+   ========================================================= */
+function cvs(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return [c, c.getContext('2d')]; }
+function toTex(c, rep) {
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; if (rep) t.repeat.set(rep[0], rep[1]); return t;
+}
+const R = Math.random;
+function blot(g, w, h, n, cols, r0, r1) {
+  for (let i = 0; i < n; i++) {
+    const x = R() * w, y = R() * h, r = r0 + R() * (r1 - r0);
+    const gr = g.createRadialGradient(x, y, 0, x, y, r);
+    gr.addColorStop(0, cols[i % cols.length]); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+}
+function speck(g, w, h, n, a) {
+  for (let i = 0; i < n; i++) {
+    const v = R() < .5 ? 0 : 255; g.fillStyle = `rgba(${v},${v},${v},${R() * a})`;
+    g.fillRect(R() * w, R() * h, 1 + R() * 2, 1 + R() * 2);
+  }
+}
+function scratches(g, w, h, n, col) {
+  g.strokeStyle = col; g.lineWidth = 1;
+  for (let i = 0; i < n; i++) { const x = R() * w, y = R() * h; g.beginPath(); g.moveTo(x, y); g.lineTo(x + (R() - .5) * 60, y + (R() - .5) * 60); g.stroke(); }
+}
+function drips(g, w, h, n, col) {
+  for (let i = 0; i < n; i++) { g.fillStyle = col; const x = R() * w, y = R() * h * .5, l = 20 + R() * h * .5; g.fillRect(x, y, 1 + R() * 2.5, l); }
+}
+function surface(base, opt = {}) {
+  const [c, g] = cvs(512, 512); g.fillStyle = base; g.fillRect(0, 0, 512, 512);
+  blot(g, 512, 512, opt.blots ?? 40, opt.dark ?? ['rgba(30,30,15,.35)', 'rgba(220,220,190,.12)', 'rgba(60,50,20,.25)'], 20, 140);
+  speck(g, 512, 512, opt.speck ?? 3000, opt.speckA ?? .18);
+  if (opt.scr) scratches(g, 512, 512, opt.scr, 'rgba(40,40,30,.25)');
+  if (opt.drip) drips(g, 512, 512, opt.drip, opt.dripCol ?? 'rgba(40,40,20,.12)');
+  return c;
+}
+const TX = {};
+TX.grime = surface('#8b8c74', { scr: 120, drip: 40 });
+TX.plain = surface('#b9bcb8', { blots: 18, dark: ['rgba(60,60,60,.18)', 'rgba(255,255,255,.08)'], speck: 1500, speckA: .1, drip: 10 });
+TX.office = surface('#a7a59a', { blots: 20, dark: ['rgba(40,40,40,.2)'], speck: 1500, speckA: .12 });
+TX.carpet = (() => { const [c, g] = cvs(256, 256); g.fillStyle = '#45484e'; g.fillRect(0, 0, 256, 256); speck(g, 256, 256, 9000, .3); blot(g, 256, 256, 8, ['rgba(0,0,0,.25)'], 20, 80); return c; })();
+TX.ceil = (() => {
+  const [c, g] = cvs(256, 256); g.fillStyle = '#c3c0b6'; g.fillRect(0, 0, 256, 256); speck(g, 256, 256, 2500, .35);
+  g.strokeStyle = '#6f6c64'; g.lineWidth = 4; g.strokeRect(0, 0, 256, 256); blot(g, 256, 256, 4, ['rgba(110,90,40,.25)'], 20, 70); return c;
+})();
+function planks(base, dark) {
+  const [c, g] = cvs(512, 512);
+  for (let y = 0; y < 512; y += 32) {
+    let x = -(R() * 200);
+    while (x < 512) {
+      const L = 140 + R() * 200, s = (R() - .5) * 30;
+      g.fillStyle = base; g.fillRect(x, y, L, 32);
+      g.fillStyle = `rgba(${s > 0 ? 255 : 0},${s > 0 ? 220 : 0},${s > 0 ? 180 : 0},${Math.abs(s) / 120})`; g.fillRect(x, y, L, 32);
+      for (let k = 0; k < 6; k++) { g.fillStyle = `rgba(0,0,0,${R() * .12})`; g.fillRect(x, y + R() * 32, L, 1); }
+      g.fillStyle = dark; g.fillRect(x, y, 2, 32); x += L;
+    }
+    g.fillStyle = dark; g.fillRect(0, y, 512, 2);
+  }
+  speck(g, 512, 512, 1500, .12); return c;
+}
+TX.wood = planks('#a07850', 'rgba(40,20,10,.6)');
+TX.woodDark = planks('#6a4630', 'rgba(20,10,5,.7)');
+TX.furn = planks('#8c6a4a', 'rgba(40,25,15,.4)');
+TX.cave = surface('#3c3528', { blots: 70, dark: ['rgba(0,0,0,.5)', 'rgba(120,100,60,.2)', 'rgba(70,10,5,.35)'], speck: 6000, speckA: .3, scr: 200, drip: 60, dripCol: 'rgba(0,0,0,.25)' });
+TX.red = (() => {
+  const c = surface('#6e2a22', { blots: 40, dark: ['rgba(0,0,0,.35)', 'rgba(200,40,30,.25)'], speck: 3000, drip: 80, dripCol: 'rgba(120,0,0,.5)' });
+  const g = c.getContext('2d'); g.font = 'bold 30px serif'; g.fillStyle = 'rgba(170,10,10,.85)';
+  const words = ['死', '呪', '帰れ', '見るな', '助けて', '殺', '後ろ'];
+  for (let i = 0; i < 40; i++) { g.save(); g.translate(R() * 512, R() * 512); g.rotate((R() - .5) * .5); g.font = `bold ${16 + R() * 26}px serif`; g.fillText(words[i % words.length], 0, 0); g.restore(); }
+  return c;
+})();
+function decal(w, h, draw) { const [c, g] = cvs(w, h); draw(g, w, h); const t = toTex(c); t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; return t; }
+const bloodTrail = decal(256, 1024, (g, w, h) => {
+  for (let i = 0; i < 900; i++) {
+    const t = i / 900, x = w / 2 + Math.sin(t * 5) * 40 + (R() - .5) * 70 * (1 - t * .5), y = t * h;
+    g.fillStyle = `rgba(${70 + R() * 40},0,0,${.25 + R() * .4})`; g.beginPath(); g.ellipse(x, y, 6 + R() * 30, 3 + R() * 10, R(), 0, 7); g.fill();
+  }
+  for (let i = 0; i < 60; i++) { g.fillStyle = 'rgba(60,0,0,.5)'; g.beginPath(); g.ellipse(R() * w, R() * h, 2, 2, 0, 0, 7); g.fill(); }
+});
+const bloodPool = decal(256, 256, (g) => {
+  for (let i = 0; i < 160; i++) { const a = R() * 7, r = R() * 90; g.fillStyle = `rgba(${60 + R() * 40},0,0,${.3 + R() * .4})`; g.beginPath(); g.ellipse(128 + Math.cos(a) * r, 128 + Math.sin(a) * r, 8 + R() * 30, 5 + R() * 20, R(), 0, 7); g.fill(); }
+});
+const bloodStreak = decal(64, 512, (g) => {
+  for (let i = 0; i < 400; i++) { const y = R() * 512; g.fillStyle = `rgba(${80 + R() * 40},0,0,${R() * .5})`; g.fillRect(28 + (R() - .5) * 12 * (y / 512), y, 3 + R() * 5, 6 + R() * 40); }
+});
+function kanji(text, size = 360, col = '#c00') {
+  return decal(512, 512, (g) => {
+    g.font = `900 ${size}px "Hiragino Mincho ProN","Yu Mincho",serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillStyle = col; g.shadowColor = 'rgba(120,0,0,.8)'; g.shadowBlur = 12;
+    if (text.length > 1) { g.font = `900 ${size / text.length * 1.4}px serif`; }
+    g.fillText(text, 256, 240);
+    g.shadowBlur = 0; for (let i = 0; i < 26; i++) { g.fillStyle = col; g.fillRect(120 + R() * 270, 250 + R() * 120, 3 + R() * 4, 30 + R() * 140); }
+  });
+}
+function hands() {
+  return decal(512, 512, (g) => {
+    for (let k = 0; k < 9; k++) {
+      const x = 60 + R() * 380, y = 60 + R() * 380; g.save(); g.translate(x, y); g.rotate((R() - .5) * 1.2);
+      g.fillStyle = 'rgba(120,0,0,.85)'; g.beginPath(); g.ellipse(0, 0, 26, 32, 0, 0, 7); g.fill();
+      for (let f = 0; f < 5; f++) { g.save(); g.rotate(-.9 + f * .42); g.fillRect(-6, -78, 12, 52); g.restore(); }
+      g.fillRect(-4, 20, 8, 60 + R() * 60); g.restore();
+    }
+  });
+}
+function sign(text, bg, fg, w = 256, h = 96, fs = 54) {
+  return decal(w, h, (g) => { g.fillStyle = bg; g.fillRect(0, 0, w, h); g.fillStyle = fg; g.font = `bold ${fs}px sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, w / 2, h / 2 + 2); });
+}
+const cityTex = decal(512, 384, (g, w, h) => {
+  g.fillStyle = '#05070c'; g.fillRect(0, 0, w, h);
+  for (let b = 0; b < 9; b++) {
+    const bx = b * 60 + R() * 20, bw = 40 + R() * 30, bt = 60 + R() * 200; g.fillStyle = '#0b0e14'; g.fillRect(bx, bt, bw, h);
+    for (let y = bt + 8; y < h; y += 12) for (let x = bx + 4; x < bx + bw - 6; x += 9) if (R() < .35) { g.fillStyle = `rgba(255,${190 + R() * 50},90,${.4 + R() * .6})`; g.fillRect(x, y, 5, 6); }
+  }
+});
+const treeTex = decal(512, 512, (g, w, h) => {
+  g.fillStyle = '#020502'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 25; i++) { g.fillStyle = `rgba(255,${180 + R() * 60},80,${.3 + R() * .5})`; g.fillRect(R() * w, h * .5 + R() * h * .5, 6, 8); }
+  blot(g, w, h, 300, ['rgba(20,50,25,.7)', 'rgba(40,80,35,.5)', 'rgba(5,20,8,.8)'], 6, 30);
+});
+function faceTex(kind) {
+  return decal(128, 160, (g) => {
+    if (kind === 'boss') {
+      g.fillStyle = '#e2d8cc'; g.beginPath(); g.ellipse(64, 86, 50, 66, 0, 0, 7); g.fill();
+      g.fillStyle = 'rgba(120,90,70,.25)'; g.beginPath(); g.ellipse(64, 104, 8, 18, 0, 0, 7); g.fill();
+      for (const x of [42, 86]) {
+        g.fillStyle = '#f2eee8'; g.beginPath(); g.ellipse(x, 74, 10, 5, 0, 0, 7); g.fill();
+        g.fillStyle = '#2a1a12'; g.beginPath(); g.arc(x, 74, 4.2, 0, 7); g.fill();
+        g.fillStyle = '#3a2a20'; g.fillRect(x - 12, 60, 24, 3);
+      }
+      g.strokeStyle = '#8a5a50'; g.lineWidth = 3; g.beginPath(); g.moveTo(48, 128); g.quadraticCurveTo(64, 132, 80, 128); g.stroke();
+    } else if (kind === 'ghost') {
+      g.fillStyle = '#ecebe6'; g.beginPath(); g.ellipse(64, 86, 48, 66, 0, 0, 7); g.fill();
+      for (const x of [42, 86]) {
+        g.fillStyle = '#000'; g.beginPath(); g.ellipse(x, 72, 12, 17, 0, 0, 7); g.fill();
+        g.fillStyle = 'rgba(90,0,0,.9)'; g.fillRect(x - 2, 80, 4, 40 + R() * 20);
+      }
+      g.fillStyle = '#000'; g.beginPath(); g.ellipse(64, 126, 14, 20, 0, 0, 7); g.fill();
+    } else if (kind === 'guard') {
+      g.fillStyle = '#d6c6b4'; g.beginPath(); g.ellipse(64, 86, 50, 66, 0, 0, 7); g.fill();
+      for (const x of [42, 86]) { g.fillStyle = '#222'; g.fillRect(x - 6, 72, 12, 4); }
+    }
+  });
+}
+// 動態雜訊貼圖（壞掉的監視器 / 電視）
+const [staticC, staticG] = cvs(128, 96);
+const staticImg = staticG.createImageData(128, 96);
+const staticTex = toTex(staticC);
+function updateStatic() {
+  const d = staticImg.data;
+  for (let i = 0; i < d.length; i += 4) { const v = 120 + R() * 135; d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255; }
+  staticG.putImageData(staticImg, 0, 0); staticTex.needsUpdate = true;
+}
+const pcScreen = decal(256, 192, (g, w, h) => {
+  g.fillStyle = '#e8eef2'; g.fillRect(0, 0, w, h); g.fillStyle = '#2a5bb0'; g.fillRect(0, 0, w, 16);
+  g.fillStyle = '#c0c8d0'; g.fillRect(8, 26, 70, 150); g.fillStyle = '#fff'; g.fillRect(86, 26, 160, 150);
+  g.fillStyle = '#99a'; for (let y = 34; y < 170; y += 10) g.fillRect(92, y, 40 + R() * 100, 3);
+});
+const vendTex = decal(128, 256, (g) => {
+  g.fillStyle = '#1838a8'; g.fillRect(0, 0, 128, 256);
+  g.fillStyle = '#f4f4f0'; g.fillRect(8, 10, 112, 112);
+  const cols = ['#e33', '#fc2', '#3a3', '#f80', '#36f', '#eee', '#a3c', '#c84'];
+  for (let r = 0; r < 3; r++) for (let i = 0; i < 8; i++) { g.fillStyle = cols[(i * 3 + r) % 8]; g.fillRect(12 + i * 13, 18 + r * 34, 8, 22); g.fillStyle = '#fff'; g.fillRect(13 + i * 13, 16 + r * 34, 6, 3); }
+  g.fillStyle = '#0a1a50'; g.fillRect(12, 132, 60, 46); g.fillStyle = '#e8c8a8'; g.beginPath(); g.arc(50, 150, 9, 0, 7); g.fill();
+  g.fillStyle = '#fff'; g.font = 'bold 11px sans-serif'; g.fillText('Cheer', 16, 172);
+  g.fillStyle = '#2f6'; for (let i = 0; i < 3; i++) g.fillRect(84, 136 + i * 8, 6, 3);
+  g.fillStyle = '#123'; g.fillRect(16, 196, 96, 30); g.fillStyle = '#2a4ab8'; g.fillRect(84, 160, 26, 18);
+});
+const redScreen = decal(64, 48, (g) => { g.fillStyle = '#d00'; g.fillRect(0, 0, 64, 48); g.fillStyle = '#000'; g.font = 'bold 30px serif'; g.textAlign = 'center'; g.fillText('死', 32, 36); });
+const [newsC, newsG] = cvs(320, 240);
+const newsTex = toTex(newsC);
+function drawNews(step) {
+  const g = newsG; g.fillStyle = '#1a2a48'; g.fillRect(0, 0, 320, 240);
+  g.fillStyle = '#3a4a68'; g.fillRect(0, 0, 320, 150);
+  g.fillStyle = '#0a0f18'; g.fillRect(40, 30, 240, 110);
+  for (let i = 0; i < 30; i++) { g.fillStyle = `rgba(255,220,120,${R() * .6})`; g.fillRect(50 + R() * 220, 40 + R() * 90, 4, 5); }
+  if (step >= 2) { g.fillStyle = '#111'; g.fillRect(150, 70, 14, 60); g.beginPath(); g.arc(157, 64, 9, 0, 7); g.fill(); }
+  g.fillStyle = '#c01818'; g.fillRect(0, 156, 70, 26); g.fillStyle = '#fff'; g.font = 'bold 18px sans-serif'; g.fillText('速報', 14, 176);
+  g.fillStyle = '#f2f2f2'; g.fillRect(0, 182, 320, 58); g.fillStyle = '#111'; g.font = 'bold 17px sans-serif';
+  g.fillText(['都内オフィスビル　警備員が行方不明', '現場に大量の血痕　警察が捜査', '防犯カメラに不審な人物'][Math.min(step, 2)], 10, 210);
+  g.font = '12px sans-serif'; g.fillText('LIVE  04:12', 250, 232);
+  newsTex.needsUpdate = true;
+}
+
+/* =========================================================
+   材質 / 幾何 工具
+   ========================================================= */
+const texCache = {};
+function texFor(name) { if (!texCache[name]) texCache[name] = toTex(TX[name]); return texCache[name]; }
+function tm(name, rx = 1, ry = 1, extra = {}) {
+  const t = texFor(name).clone(); t.repeat.set(rx, ry); t.needsUpdate = true;
+  return new THREE.MeshStandardMaterial({ map: t, roughness: .92, metalness: 0, ...extra });
+}
+const cm = (color, extra = {}) => new THREE.MeshStandardMaterial({ color, roughness: .8, metalness: 0, ...extra });
+const bm = (map, extra = {}) => new THREE.MeshBasicMaterial({ map, ...extra });
+const BOX = new THREE.BoxGeometry(1, 1, 1);
+function box(parent, w, h, d, x, y, z, mat, ry = 0) {
+  const m = new THREE.Mesh(BOX, mat); m.scale.set(w, h, d); m.position.set(x, y, z); m.rotation.y = ry; parent.add(m); return m;
+}
+function cyl(parent, rt, rb, h, x, y, z, mat, seg = 12) {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), mat); m.position.set(x, y, z); parent.add(m); return m;
+}
+function plane(parent, w, h, mat, x, y, z, rx = 0, ry = 0) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat); m.position.set(x, y, z); m.rotation.set(rx, ry, 0, 'YXZ'); parent.add(m); return m;
+}
+function decalMat(tex, extra = {}) { return new THREE.MeshStandardMaterial({ map: tex, transparent: true, depthWrite: false, roughness: .6, polygonOffset: true, polygonOffsetFactor: -2, ...extra }); }
+function collider(area, minX, maxX, minZ, maxZ) { area.colliders.push({ minX, maxX, minZ, maxZ }); }
+function solid(area, parent, w, h, d, x, y, z, mat, ry = 0) {
+  const m = box(parent, w, h, d, x, y, z, mat, ry);
+  const sw = Math.abs(Math.cos(ry)) > .5 ? w : d, sd = Math.abs(Math.cos(ry)) > .5 ? d : w;
+  collider(area, x - sw / 2, x + sw / 2, z - sd / 2, z + sd / 2); return m;
+}
+function room(area, x0, x1, z0, z1, h, wall, floor, ceil, skip = []) {
+  const g = area.group, W = x1 - x0, D = z1 - z0, cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+  box(g, W, .1, D, cx, -.05, cz, tm(floor[0], W / floor[1], D / floor[1]));
+  if (ceil) box(g, W, .1, D, cx, h + .05, cz, tm(ceil[0], W / ceil[1], D / ceil[1]));
+  if (!skip.includes('N')) solid(area, g, W + .4, h, .2, cx, h / 2, z0 - .1, tm(wall[0], W / wall[1], h / wall[1]));
+  if (!skip.includes('S')) solid(area, g, W + .4, h, .2, cx, h / 2, z1 + .1, tm(wall[0], W / wall[1], h / wall[1]));
+  if (!skip.includes('W')) solid(area, g, .2, h, D, x0 - .1, h / 2, cz, tm(wall[0], D / wall[1], h / wall[1]));
+  if (!skip.includes('E')) solid(area, g, .2, h, D, x1 + .1, h / 2, cz, tm(wall[0], D / wall[1], h / wall[1]));
+}
+
+/* ---------- 家具 ---------- */
+const M = {
+  beige: cm(0xcfc9b8), grey: cm(0x55585c), dark: cm(0x1e1f22), metal: cm(0x8a8d90, { metalness: .4, roughness: .5 }),
+  black: cm(0x0c0c0e), seat: cm(0x1f2a40), white: cm(0xd8d6d0), cabinet: cm(0x9a9a88),
+};
+function crt(parent, x, y, z, ry, screenMat, s = 1) {
+  const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = ry; g.scale.setScalar(s); parent.add(g);
+  box(g, .44, .38, .42, 0, .19, -.02, M.beige);
+  box(g, .3, .28, .2, 0, .19, -.3, M.beige);
+  const scr = plane(g, .36, .28, screenMat, 0, .2, .192);
+  return { g, scr };
+}
+function desk(area, parent, x, z, ry, opt = {}) {
+  const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = ry; parent.add(g);
+  box(g, 1.4, .05, .7, 0, .74, 0, opt.top || M.grey);
+  box(g, .04, .72, .66, -.68, .36, 0, M.grey); box(g, .04, .72, .66, .68, .36, 0, M.grey);
+  box(g, .42, .66, .62, .45, .36, 0, M.cabinet);
+  for (let i = 0; i < 4; i++) box(g, .38, .005, .01, .45, .2 + i * .15, .315, M.dark);
+  const sw = Math.abs(Math.cos(ry)) > .5;
+  collider(area, x - (sw ? .72 : .37), x + (sw ? .72 : .37), z - (sw ? .37 : .72), z + (sw ? .37 : .72));
+  let mon = null;
+  if (opt.monitor !== false) mon = crt(g, -.15, .765, -.08, 0, opt.screen || bm(pcScreen));
+  if (opt.tower) box(g, .2, .42, .45, .45, .98, -.05, M.beige);
+  box(g, .45, .03, .16, -.15, .78, .2, M.beige);
+  return { g, mon };
+}
+function chair(parent, x, z, ry) {
+  const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = ry; parent.add(g);
+  box(g, .48, .08, .46, 0, .48, 0, M.seat);
+  const back = box(g, .46, .55, .07, 0, .8, -.22, M.seat); back.rotation.x = -.1;
+  cyl(g, .025, .025, .4, 0, .26, 0, M.metal);
+  for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2; const l = box(g, .3, .03, .04, Math.cos(a) * .15, .06, Math.sin(a) * .15, M.dark); l.rotation.y = -a; }
+  return g;
+}
+function lightTube(parent, x, y, z, len = 1.4, ry = 0) {
+  return box(parent, len, .04, .1, x, y, z, new THREE.MeshBasicMaterial({ color: 0xe8f4ff }), ry);
+}
+
+/* ---------- 人物 ---------- */
+function person(o) {
+  const g = new THREE.Group();
+  const mat = c => cm(c, { roughness: .9 });
+  const P = { g };
+  const legs = [];
+  for (const s of [-1, 1]) {
+    const lg = new THREE.Group(); lg.position.set(s * .1, .86, 0); g.add(lg);
+    box(lg, .15, .84, .17, 0, -.42, 0, mat(o.pants)); box(lg, .15, .07, .26, 0, -.84, .04, M.black);
+    legs.push(lg);
+  }
+  [P.legL, P.legR] = legs;
+  P.torso = box(g, .46, .64, .26, 0, 1.18, 0, mat(o.body));
+  box(g, .5, .1, .28, 0, 1.46, 0, mat(o.body));
+  if (o.shirt) { box(g, .16, .38, .01, 0, 1.3, .132, mat(0xeeeeee)); box(g, .06, .36, .012, 0, 1.28, .138, cm(0xb8bcc0, { metalness: .5, roughness: .4 })); }
+  if (o.apron) { box(g, .44, .78, .02, 0, .98, .14, mat(0xcfccc0)); }
+  const arms = [];
+  for (const s of [-1, 1]) {
+    const ag = new THREE.Group(); ag.position.set(s * .29, 1.44, 0); g.add(ag);
+    box(ag, .12, .62, .13, 0, -.3, 0, mat(o.body));
+    const hand = new THREE.Mesh(new THREE.SphereGeometry(.055, 8, 6), mat(o.skin)); hand.position.y = -.64; ag.add(hand);
+    arms.push(ag);
+  }
+  [P.armL, P.armR] = arms;
+  cyl(g, .05, .055, .1, 0, 1.54, 0, mat(o.skin));
+  const head = new THREE.Group(); head.position.set(0, 1.68, 0); g.add(head); P.head = head;
+  const hs = new THREE.Mesh(new THREE.SphereGeometry(.115, 16, 12), mat(o.skin)); hs.scale.set(1, 1.2, 1.05); head.add(hs);
+  if (o.hair) { const h = new THREE.Mesh(new THREE.SphereGeometry(.122, 16, 10, 0, Math.PI * 2, 0, Math.PI * .5), mat(o.hair)); h.scale.set(1, 1.15, 1.08); h.position.y = .02; h.rotation.x = -.25; head.add(h); }
+  if (o.longHair) { box(head, .25, .55, .08, 0, -.15, -.09, mat(0x050505)); box(head, .06, .45, .2, -.11, -.12, 0, mat(0x050505)); box(head, .06, .45, .2, .11, -.12, 0, mat(0x050505)); }
+  if (o.face) { P.face = plane(head, .21, .27, new THREE.MeshStandardMaterial({ map: faceTex(o.face), transparent: true, roughness: .7 }), 0, -.01, .118); }
+  if (o.hood) { const hd = new THREE.Mesh(new THREE.SphereGeometry(.14, 14, 10), mat(o.hood)); hd.scale.set(1, 1.2, 1.1); head.add(hd); P.hood = hd; }
+  if (o.cap) { cyl(head, .13, .13, .07, 0, .12, 0, mat(o.cap)); box(head, .2, .015, .1, 0, .09, .14, mat(o.cap)); }
+  P.walk = (t, amt) => { const s = Math.sin(t * 7) * .5 * amt; P.legL.rotation.x = s; P.legR.rotation.x = -s; P.armL.rotation.x = -s * .7; if (!P.holdR) P.armR.rotation.x = s * .7; };
+  return P;
+}
+function faceTo(obj, x, z) { obj.rotation.y = Math.atan2(x - obj.position.x, z - obj.position.z); }
+
+/* =========================================================
+   區域
+   ========================================================= */
+const areas = {};
+function makeArea(name, fog) { const a = { name, group: new THREE.Group(), colliders: [], fog, update: () => { } }; a.group.visible = false; scene.add(a.group); areas[name] = a; return a; }
+const hemi = new THREE.HemisphereLight(0x8a9aa8, 0x101010, .25); scene.add(hemi);
+
+// ---------- 手電筒 ----------
+const flashlight = new THREE.SpotLight(0xfff1dc, 14, 22, .5, .55, 1.5);
+flashlight.position.set(.18, -.12, .05); camera.add(flashlight);
+flashlight.target.position.set(0, -.15, -1.5); camera.add(flashlight.target);
+let flashOn = true;
+
+/* ---------- A：辦公室 ---------- */
+const A = makeArea('office', .07);
+{
+  const g = A.group;
+  room(A, -7, 7, -6, 6, 2.8, ['office', 3], ['carpet', 1.5], ['ceil', .6]);
+  // 窗戶 + 城市夜景
+  plane(g, 3.2, 1.3, bm(cityTex, { color: 0x999999 }), -4.5, 1.65, -5.98);
+  box(g, 3.3, .06, .1, -4.5, 1.0, -5.95, M.grey); box(g, 3.3, .06, .1, -4.5, 2.3, -5.95, M.grey);
+  for (let i = 0; i < 5; i++) box(g, .04, 1.3, .06, -6.1 + i * .8, 1.65, -5.95, M.grey);
+  const winL = new THREE.PointLight(0x6080b0, 2.2, 7, 1.6); winL.position.set(-4.5, 1.6, -5.2); g.add(winL);
+  // 小窗（亮著的）
+  plane(g, .7, .6, new THREE.MeshBasicMaterial({ color: 0xbfc2b8 }), -1.2, 1.7, -5.98);
+  // 隔板
+  const blue = cm(0x1d3c7a, { roughness: 1 });
+  solid(A, g, 3.6, 1.35, .08, -3.5, .675, -2.4, blue);
+  solid(A, g, 3.6, 1.35, .08, 3.2, .675, -2.4, blue);
+  solid(A, g, .08, 1.35, 2.6, -1.7, .675, -3.7, blue);
+  // 桌子
+  A.desks = [];
+  [[-4.6, -3.4, 0], [-2.6, -3.4, 0], [2.2, -3.4, 0], [4.2, -3.4, 0], [-4.6, .4, Math.PI], [-2.6, .4, Math.PI], [3, .6, Math.PI], [5, .6, Math.PI]]
+    .forEach(([x, z, r], i) => A.desks.push(desk(A, g, x, z, r, { tower: i % 2 === 0 })));
+  A.chairs = [];
+  [[-4.6, -2.7, Math.PI], [-2.6, -2.8, Math.PI + .3], [2.2, -2.7, Math.PI], [4.4, -2.9, Math.PI - .4], [-4.6, 1.2, 0], [3, 1.4, .2], [5.1, 1.5, -.3]]
+    .forEach(([x, z, r]) => A.chairs.push(chair(g, x, z, r)));
+  // 機箱 / 櫃子
+  box(g, .2, .45, .45, -5.8, .225, 4.8, M.beige); box(g, .2, .45, .45, -5.5, .225, 4.8, M.beige);
+  solid(A, g, .5, 1.4, 2, 6.7, .7, 3.5, M.cabinet);
+  solid(A, g, .5, 1.1, 1.4, -6.7, .55, 2.5, M.cabinet);
+  // 緊急紅燈
+  const redL = new THREE.PointLight(0xff1a10, 3.5, 7, 1.4); redL.position.set(1.4, 1.5, -5.6); g.add(redL); A.redL = redL;
+  const redB = new THREE.Mesh(new THREE.SphereGeometry(.07, 8, 6), new THREE.MeshBasicMaterial({ color: 0xff3020 })); redB.position.set(1.4, 1.5, -5.92); g.add(redB);
+  // 非常口
+  A.door = box(g, .08, 2.1, 1.1, 6.95, 1.05, -4, cm(0x6c6f72, { metalness: .3, roughness: .6 }));
+  box(g, .1, .05, .1, 6.88, 1.0, -3.6, M.metal);
+  plane(g, .6, .22, bm(sign('非常口', '#0b8a3c', '#fff')), 6.97, 2.35, -4, 0, -Math.PI / 2);
+  const exitL = new THREE.PointLight(0x30ff80, .8, 3, 2); exitL.position.set(6.6, 2.3, -4); g.add(exitL);
+  // 上司
+  const boss = person({ body: 0x7e8082, pants: 0x6c6e70, skin: 0xd9cfc4, hair: 0x15110e, shirt: true, face: 'boss' });
+  A.boss = boss; g.add(boss.g);
+  boss.holdR = true; boss.armR.rotation.set(-1.75, 0, -.35);
+  const fl = cyl(boss.armR, .028, .035, .24, 0, -.68, .05, cm(0xf2d24a, { roughness: .5 })); fl.rotation.x = Math.PI / 2;
+  const bossLight = new THREE.SpotLight(0xffffff, 40, 14, .38, .4, 1.6);
+  bossLight.position.set(0, -.65, .2); boss.armR.add(bossLight);
+  const bt = new THREE.Object3D(); bt.position.set(0, -3, -.2); boss.armR.add(bt); bossLight.target = bt;
+  A.bossLight = bossLight;
+  const bossGlow = new THREE.Mesh(new THREE.CircleGeometry(.04, 12), new THREE.MeshBasicMaterial({ color: 0xffffee })); bossGlow.position.set(0, -.68, .171); bossGlow.rotation.x = Math.PI / 2; boss.armR.add(bossGlow);
+  // 監視器拍到的異常用：桌上的紅色螢幕
+  A.redScreens = A.desks.slice(0, 4).map(d => d.mon.scr);
+  A.normalScreen = A.desks[0].mon.scr.material; A.redMat = bm(redScreen);
+}
+
+/* ---------- B：走廊（清潔工） ---------- */
+const B = makeArea('corridor', .09);
+{
+  const g = B.group, X = 100;
+  room(B, X - 1.5, X + 1.5, -22, 0, 2.6, ['plain', 2.5], ['woodDark', 2], ['ceil', .6]);
+  // 支柱 / 牆面變化
+  for (const z of [-4, -8, -16, -19]) { solid(B, g, .3, 2.6, .4, X - 1.35, 1.3, z, tm('plain', .3, 2)); solid(B, g, .3, 2.6, .4, X + 1.35, 1.3, z, tm('plain', .3, 2)); }
+  // 側邊凹處
+  const alc = tm('plain', 1, 1.5);
+  box(g, .1, .1, .1, 0, -10, 0, alc);
+  // 走廊上方黑暗橫樑
+  for (const z of [-6, -11, -14]) box(g, 3, .25, .3, X, 2.48, z, M.dark);
+  // 日光燈
+  B.tube = lightTube(g, X, 2.5, -12.5, 1.4);
+  B.light = new THREE.PointLight(0xcfe6ff, 6, 9, 1.5); B.light.position.set(X, 2.3, -12.5); g.add(B.light);
+  const l2 = new THREE.PointLight(0xa8c0d0, 1.0, 6, 1.6); l2.position.set(X, 2.3, -20); g.add(l2);
+  // 血跡
+  plane(g, 1.4, 8, decalMat(bloodTrail), X - .2, .012, -8.5, -Math.PI / 2, 0);
+  plane(g, 1.8, 1.8, decalMat(bloodPool), X - .1, .014, -13, -Math.PI / 2, 0);
+  plane(g, .25, 2, decalMat(bloodStreak), X + 1.49, 1.1, -10, 0, -Math.PI / 2);
+  // 監視器異常：牆上的血字
+  B.wallText = plane(g, 1.8, 1.8, decalMat(kanji('見ている', 300)), X - 1.48, 1.3, -10.5, 0, Math.PI / 2); B.wallText.visible = false;
+  // 門 → 警備室
+  B.door = box(g, 1.1, 2.1, .08, X, 1.05, -21.95, cm(0x5a5d60, { metalness: .3, roughness: .6 }));
+  box(g, .1, .05, .1, X + .4, 1.0, -21.88, M.metal);
+  plane(g, .7, .24, bm(sign('警備室', '#ddd', '#222')), X, 2.32, -21.97);
+  // 清潔工
+  const cl = person({ body: 0x2a2d38, pants: 0x262830, skin: 0xcbbfb0, apron: true, hood: 0x3c3a3a });
+  cl.g.position.set(X - .2, 0, -13.2); cl.g.rotation.y = Math.PI * .85; g.add(cl.g); B.cleaner = cl;
+  cl.holdR = true; cl.armR.rotation.x = -.5; cl.armL.rotation.x = -.6;
+  const broom = new THREE.Group(); broom.position.set(.05, .95, .3); cl.g.add(broom); cl.broom = broom;
+  const stick = cyl(broom, .015, .015, 1.25, 0, 0, 0, cm(0x9a8a6a)); stick.rotation.x = .75;
+  box(broom, .28, .1, .1, 0, -.48, .45, cm(0x2d7a3a));
+  collider(B, X - .55, X + .15, -13.55, -12.85);
+  // 異常用：盯著鏡頭的清潔工位置
+}
+
+/* ---------- C：警備室 ---------- */
+const C = makeArea('security', .06);
+{
+  const g = C.group, X = 200;
+  room(C, X - 4, X + 4, -4, 4, 2.7, ['grime', 2.2], ['carpet', 1.5], ['ceil', .6], ['E']);
+  // 東牆：窗戶（看出去是自動販賣機區）
+  const gw = (w, h) => tm('grime', w / 2.2, h / 2.2);
+  solid(C, g, .2, 2.7, 1.8, X + 4.1, 1.35, -3.1, gw(1.8, 2.7));
+  solid(C, g, .2, 2.7, 1.8, X + 4.1, 1.35, 3.1, gw(1.8, 2.7));
+  solid(C, g, .2, 1.0, 4.4, X + 4.1, .5, 0, gw(4.4, 1));
+  box(g, .2, .4, 4.4, X + 4.1, 2.5, 0, gw(4.4, .4));
+  const frame = cm(0x3a3b38, { roughness: .6, metalness: .3 });
+  box(g, .4, .06, 4.4, X + 3.9, 1.02, 0, frame); box(g, .12, .08, 4.4, X + 4.05, 2.3, 0, frame);
+  box(g, .1, 1.3, .08, X + 4.05, 1.65, 0, frame); box(g, .1, .06, 4.4, X + 4.05, 1.62, 0, frame);
+  plane(g, 4.4, 1.3, new THREE.MeshStandardMaterial({ color: 0x6a7a88, transparent: true, opacity: .16, roughness: .05, metalness: .6, depthWrite: false }), X + 4.02, 1.65, 0, 0, -Math.PI / 2);
+  C.desk3 = desk(C, g, X + 3.4, 1.0, -Math.PI / 2, { tower: true });
+  box(g, .5, .55, .5, X + 3.6, .28, -1.2, M.beige); box(g, .45, .3, .5, X + 3.6, .7, -1.2, M.beige);
+  // 自販機コーナー
+  const H = X + 4.2;
+  box(g, 5, .1, 10, H + 2.5, -.05, 0, tm('carpet', 3, 6, { color: 0x666666 }));
+  box(g, 5, .1, 10, H + 2.5, 2.75, 0, tm('ceil', 8, 16));
+  box(g, .2, 2.8, 10, H + 5.1, 1.4, 0, tm('plain', 4, 1.2, { color: 0x888888 }));
+  box(g, 5, 2.8, .2, H + 2.5, 1.4, -5, tm('plain', 2, 1.2, { color: 0x888888 })); box(g, 5, 2.8, .2, H + 2.5, 1.4, 5, tm('plain', 2, 1.2, { color: 0x888888 }));
+  C.vend = [];
+  for (const z of [-1.3, 1.1]) {
+    const v = new THREE.Group(); v.position.set(H + 4.5, 0, z); v.rotation.y = -Math.PI / 2; g.add(v);
+    box(v, .95, 1.85, .8, 0, .925, 0, cm(0x1a3590, { roughness: .4 }));
+    const fr = plane(v, .86, 1.72, new THREE.MeshBasicMaterial({ map: vendTex }), 0, .95, .405);
+    const vl = new THREE.PointLight(0xcfe0ff, 2.2, 4.5, 1.6); vl.position.set(0, 1.3, .9); v.add(vl);
+    C.vend.push({ fr, vl });
+  }
+  const hallL = new THREE.PointLight(0xd8ecff, 3, 7, 1.6); hallL.position.set(H + 1.6, 2.55, -2.5); g.add(hallL);
+  box(g, .5, .04, .5, H + 1.6, 2.69, -2.5, new THREE.MeshBasicMaterial({ color: 0xffffff }));
+  // 異常用：販賣機前的人影
+  const vf = person({ body: 0x2a2d38, pants: 0x262830, skin: 0xe5e3dd, apron: true, longHair: true, face: 'ghost' });
+  vf.g.position.set(H + 1.3, 0, -.1); vf.g.rotation.y = -Math.PI / 2; vf.g.visible = false; g.add(vf.g); C.vendFig = vf;
+  // 監視器牆
+  box(g, .1, 1.95, 3.4, X - 3.93, 1.75, -2.05, M.dark);
+  C.screens = [];
+  const rows = [2.33, 1.77, 1.21], cols = [-3.3, -2.47, -1.64, -.81];
+  rows.forEach((y, r) => cols.forEach((z, c) => {
+    box(g, .08, .52, .76, X - 3.85, y, z, M.dark);
+    const s = plane(g, .7, .46, bm(staticTex), X - 3.8, y, z, 0, Math.PI / 2);
+    C.screens.push(s);
+  }));
+  // 桌子
+  C.desk1 = desk(C, g, X - 3.35, -2.9, Math.PI / 2, { tower: true });
+  C.desk2 = desk(C, g, X - 3.35, -1.2, Math.PI / 2, { tower: true });
+  chair(g, X - 2.4, -2.8, -Math.PI / 2 + .3); C.chair = chair(g, X - 2.35, -1.25, -Math.PI / 2);
+  // 鍵盤上的紙
+  box(g, .3, .02, .4, X - 3.1, .77, -.5, M.white);
+  // 櫃子
+  solid(C, g, .6, 2.1, 2.2, X - 3.7, 1.05, 2.4, M.cabinet);
+  for (let i = 0; i < 3; i++) box(g, .01, .02, .3, X - 3.39, 1.2, 1.6 + i * .7, M.dark);
+  box(g, .4, 1.6, .5, X - 1.9, .8, -3.7, M.dark);
+  // 角落小電視
+  solid(C, g, .9, .05, .6, X + 3.2, .72, -3.3, M.cabinet);
+  cyl(g, .03, .03, .7, X + 3.2, .36, -3.3, M.dark);
+  C.tv = crt(g, X + 3.2, .745, -3.3, -Math.PI * .8, bm(staticTex, { color: 0x6080ff }), 1.05);
+  // 天花板燈（閃爍）
+  lightTube(g, X - 1, 2.66, -1, 1.2, Math.PI / 2);
+  C.light = new THREE.PointLight(0xd8e8c8, 3.2, 9, 1.4); C.light.position.set(X - 1, 2.4, -1); g.add(C.light);
+  const tvL = new THREE.PointLight(0x4060ff, .8, 3, 2); tvL.position.set(X + 3, 1.1, -2.9); g.add(tvL); C.tvL = tvL;
+  // 門
+  C.door = box(g, 1.1, 2.1, .08, X + 1.5, 1.05, 3.95, cm(0x5a5d60, { metalness: .3, roughness: .6 }));
+  // 監視器畫面中的「自己」
+  const me = person({ body: 0x1d2433, pants: 0x1a1f2c, skin: 0xd0c0ae, hair: 0x111111, cap: 0x1a2030, face: 'guard' });
+  me.g.position.set(X - 2.35, -.35, -1.25); me.g.rotation.y = -Math.PI / 2;
+  me.legL.rotation.x = me.legR.rotation.x = -1.5; me.armL.rotation.x = me.armR.rotation.x = -1.1;
+  me.g.visible = false; g.add(me.g); C.me = me;
+  // 背後的人
+  const gh = person({ body: 0x2a2d38, pants: 0x262830, skin: 0xe5e3dd, apron: true, longHair: true, face: 'ghost' });
+  gh.g.position.set(X - 1.35, 0, -1.25); gh.g.rotation.y = -Math.PI / 2; gh.g.visible = false; g.add(gh.g); C.ghost = gh;
+  gh.armL.rotation.x = gh.armR.rotation.x = -.2;
+}
+
+/* ---------- D：惡夢走廊 ---------- */
+const D = makeArea('nightmare', .1);
+{
+  const g = D.group, X = 300;
+  const wall = (x0, x1, z0, z1, h, mat) => solid(D, g, Math.max(x1 - x0, .2), h, Math.max(z1 - z0, .2), (x0 + x1) / 2, h / 2, (z0 + z1) / 2, mat);
+  const conc = (w, h, c = 0x8a6060) => tm('cave', w / 2, h / 2, { color: c });
+  // 地下室（紅色日光燈、柱子、管理亭）
+  box(g, 14, .1, 10, X, -.05, 5, conc(14, 10, 0x6a4a4a));
+  box(g, 14, .1, 10, X, 3.05, 5, conc(14, 10, 0x4a2a2a));
+  wall(X - 7.2, X - 7, 0, 10, 3, conc(10, 3)); wall(X + 7, X + 7.2, 0, 10, 3, conc(10, 3));
+  wall(X - 7, X + 7, 10, 10.2, 3, conc(14, 3));
+  wall(X - 7, X - 2, -.2, 0, 3, conc(5, 3)); wall(X + 2, X + 7, -.2, 0, 3, conc(5, 3));
+  box(g, 4, .2, .2, X, 2.9, -.1, conc(4, .2));
+  // 左側紅色通道（隔牆 + 紅燈）
+  wall(X - 4.6, X - 4.3, 3.2, 10, 3, conc(.3, 3));
+  box(g, 2.6, .3, .3, X - 5.8, 2.7, 3.2, conc(2.6, .3));
+  lightTube(g, X - 5.8, 2.82, 6.2, 1.6, Math.PI / 2).material.color.set(0xffd0c8);
+  const rl = new THREE.PointLight(0xff1008, 9, 9, 1.3); rl.position.set(X - 5.8, 2.4, 6.2); g.add(rl); D.redTube = rl;
+  // 柱子 + 白色水管
+  wall(X - 3.3, X - 2.8, 4.8, 5.3, 3, conc(.5, 3, 0x3a2a2a));
+  const pipe = cyl(g, .06, .06, 3, X - 2.72, 1.5, 4.85, cm(0xc8c0b0, { roughness: .6 }));
+  for (const y of [.9, 1.95]) cyl(g, .068, .068, .05, X - 2.72, y, 4.85, cm(0x6a3020));
+  // 管理亭
+  const BX = X + 3.6, BZ = 4.2, bw = cm(0x5a4038, { roughness: 1 });
+  box(g, 2.2, .9, 1.6, BX, .45, BZ, bw);
+  box(g, 2.3, .15, 1.7, BX, 2.3, BZ, bw);
+  for (const [dx, dz] of [[-1.05, -.75], [1.05, -.75], [-1.05, .75], [1.05, .75]]) box(g, .1, 1.4, .1, BX + dx, 1.6, BZ + dz, bw);
+  const glass = new THREE.MeshStandardMaterial({ color: 0x220808, transparent: true, opacity: .55, roughness: .1 });
+  box(g, 2.0, 1.3, .02, BX, 1.6, BZ + .76, glass); box(g, 2.0, 1.3, .02, BX, 1.6, BZ - .76, glass);
+  box(g, .02, 1.3, 1.4, BX - 1.06, 1.6, BZ, glass); box(g, .02, 1.3, 1.4, BX + 1.06, 1.6, BZ, glass);
+  for (const dx of [-.35, .35]) box(g, .05, 1.3, .05, BX + dx, 1.6, BZ + .77, bw);
+  collider(D, BX - 1.15, BX + 1.15, BZ - .85, BZ + .85);
+  D.boothFig = person({ body: 0x2a2d38, pants: 0x262830, skin: 0xe5e3dd, apron: true, longHair: true, face: 'ghost' });
+  D.boothFig.g.position.set(BX, 0, BZ); D.boothFig.g.visible = false; g.add(D.boothFig.g);
+  // 牆上的告示板
+  plane(g, 3.2, 1.7, tm('red', 1, .5, { color: 0x885544 }), X + 4.4, 1.6, .02);
+  box(g, 3.4, .08, .1, X + 4.4, .72, .05, bw);
+  const bl = new THREE.PointLight(0xff3020, .9, 6, 1.6); bl.position.set(X + 3.5, 2.2, 2); g.add(bl);
+  // 洞穴段
+  box(g, 4, .1, 12, X, -.05, -6, tm('cave', 2, 6)); box(g, 4, .1, 12, X, 2.85, -6, tm('cave', 2, 6));
+  wall(X - 2.2, X - 2, -12, 0, 2.8, tm('cave', 6, 1.4)); wall(X + 2, X + 2.2, -12, 0, 2.8, tm('cave', 6, 1.4));
+  // 紅色走廊段
+  const redW = ['red', 2];
+  box(g, 2, .1, 18, X, -.04, -21, tm('woodDark', 1, 9, { color: 0x884444 }));
+  box(g, 2, .1, 18, X, 2.45, -21, tm('red', 1, 9));
+  solid(D, g, .2, 2.5, 18, X - 1.1, 1.25, -21, tm(redW[0], 9, 1.2));
+  solid(D, g, .2, 2.5, 18, X + 1.1, 1.25, -21, tm(redW[0], 9, 1.2));
+  const cw = tm('cave', .5, 1.4);
+  wall(X - 2, X - 1, -12.3, -11.9, 2.8, cw); wall(X + 1, X + 2, -12.3, -11.9, 2.8, cw); box(g, 2, .35, .2, X, 2.62, -12.1, cw);
+  // 紅門
+  D.door = box(g, 1, 2, .08, X, 1, -29.9, new THREE.MeshBasicMaterial({ color: 0xc81818 }));
+  D.colliders.push({ minX: X - 1, maxX: X + 1, minZ: -30.4, maxZ: -29.86 });
+  const dl = new THREE.PointLight(0xff2010, 4, 6, 1.5); dl.position.set(X, 1.6, -28.6); g.add(dl);
+  [-15, -19, -23, -27].forEach(z => { const l = new THREE.PointLight(0xff4030, 2.4, 5, 1.6); l.position.set(X, 2.2, z); g.add(l); cyl(g, .05, .05, .06, X, 2.38, z, new THREE.MeshBasicMaterial({ color: 0xffaa66 })); });
+  // 「死」
+  plane(g, 2.6, 2.6, decalMat(kanji('死', 420), { emissive: 0x330000 }), X + 1.98, 1.5, -6.5, 0, -Math.PI / 2);
+  plane(g, 1.2, 1.2, decalMat(kanji('呪', 380)), X + 1.98, 1.8, -9.5, 0, -Math.PI / 2);
+  plane(g, 1.4, 1.4, decalMat(kanji('助けて', 300)), X - 1.98, 1.4, -4, 0, Math.PI / 2);
+  plane(g, 2.2, 2.2, decalMat(hands()), X - 1.98, 1.3, -9, 0, Math.PI / 2);
+  plane(g, 2.6, 2.6, decalMat(bloodPool), X, .02, -5, -Math.PI / 2, 0);
+  plane(g, 1.4, 16, decalMat(bloodTrail), X, .02, -20, -Math.PI / 2, 0);
+  // 岩石 + 電視
+  const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(.6, 1), cm(0x6a5a5a, { roughness: 1, flatShading: true }));
+  rock.scale.set(1, .75, .9); rock.position.set(X - .6, .4, -10); g.add(rock);
+  collider(D, X - 1.2, X, -10.6, -9.4);
+  D.tvScreenMat = bm(staticTex, { color: 0x553333 });
+  D.tv = crt(g, X - .55, .78, -10.05, .5, D.tvScreenMat, 1.1); D.tv.g.rotation.z = -.18;
+  D.tvFace = bm(faceTex('ghost'), { color: 0xffaaaa });
+  const amb = new THREE.PointLight(0xff3020, 1.2, 8, 1.4); amb.position.set(X, 2, -6); g.add(amb); D.amb = amb;
+  // 追逐者
+  const ch = person({ body: 0x2a2d38, pants: 0x262830, skin: 0xe5e3dd, apron: true, longHair: true, face: 'ghost' });
+  ch.armL.rotation.x = ch.armR.rotation.x = -1.4; ch.holdR = true; ch.g.visible = false; g.add(ch.g); D.chaser = ch;
+}
+
+/* ---------- E：公寓 ---------- */
+const E = makeArea('apartment', .05);
+{
+  const g = E.group, X = 400;
+  room(E, X - 4, X + 4, -5, 4, 2.6, ['plain', 2.2], ['wood', 2], ['plain', 3]);
+  // 窗戶 + 窗簾
+  plane(g, 1.6, 1.9, bm(treeTex, { color: 0xaaaaaa }), X - 2.6, 1.3, -4.98);
+  plane(g, 1.2, 1.9, bm(treeTex, { color: 0x888888 }), X + 2.4, 1.3, -4.98);
+  const curtain = cm(0x3c4a3a, { roughness: 1 });
+  for (let i = 0; i < 9; i++) box(g, .14, 2.3, .06, X - 3.7 + i * .16 + (i > 4 ? 1.2 : 0), 1.3, -4.88 + (i % 2) * .04, curtain);
+  for (let i = 0; i < 7; i++) box(g, .14, 2.3, .06, X + 1.6 + i * .16 + (i > 3 ? 1.1 : 0), 1.3, -4.88 + (i % 2) * .04, curtain);
+  // 餐桌
+  const wood = tm('furn', 1, 1);
+  solid(E, g, 1.0, .05, 1.8, X, .74, -1.3, wood);
+  for (const [dx, dz] of [[-.45, -.85], [.45, -.85], [-.45, .85], [.45, .85]]) box(g, .05, .72, .05, X + dx, .36, -1.3 + dz, wood);
+  const chairW = (x, z, ry) => { const c = new THREE.Group(); c.position.set(x, 0, z); c.rotation.y = ry; g.add(c);
+    box(c, .45, .04, .45, 0, .46, 0, wood); box(c, .45, .5, .04, 0, .72, -.21, wood);
+    for (const [a, b] of [[-.2, -.2], [.2, -.2], [-.2, .2], [.2, .2]]) box(c, .04, .46, .04, a, .23, b, wood);
+    box(c, .4, .03, .4, 0, .49, 0, M.dark); };
+  chairW(X - .75, -1.8, Math.PI / 2); chairW(X + .75, -1.0, -Math.PI / 2); chairW(X + .7, -2.0, -Math.PI / 2); chairW(X - .7, -.6, Math.PI / 2 + .2);
+  const bowl = new THREE.Mesh(new THREE.SphereGeometry(.14, 14, 8, 0, 7, Math.PI / 2, Math.PI / 2), cm(0x222222, { roughness: .3 })); bowl.position.set(X, .9, -1.6); g.add(bowl);
+  box(g, .2, .02, .05, X - .1, .775, -1.0, M.black);
+  // 櫃子
+  solid(E, g, 1.0, 2.0, .45, X + .8, 1.0, -4.75, wood);
+  for (const y of [.5, 1.0, 1.5]) box(g, .9, .03, .4, X + .8, y, -4.5, wood);
+  // 電視 + 電視櫃
+  solid(E, g, .5, .5, 1.5, X - 3.7, .25, -1.5, wood);
+  E.tvScreenMat = bm(staticTex, { color: 0x222222 });
+  E.tv = crt(g, X - 3.65, .5, -1.5, Math.PI / 2, E.tvScreenMat, 1.6);
+  // 沙發
+  solid(E, g, .8, .45, 1.6, X - 3.4, .22, 2.4, cm(0xb0b0b8));
+  box(g, .2, .5, 1.6, X - 3.75, .6, 2.4, cm(0xb0b0b8));
+  // 樂高積木牆
+  const legoCols = [0x2040ff, 0xb020c0, 0x1060ff, 0x7030e0, 0x20b040, 0xff8020, 0xe03030, 0xffc020];
+  const studs = [];
+  const brick = (x, y, z, w, col) => { box(g, w, .2, .4, x, y, z, cm(col, { roughness: .35 })); for (let i = 0; i < Math.round(w / .2); i++) studs.push([x - w / 2 + .1 + i * .2, y + .13, z, col]); };
+  for (let row = 0; row < 3; row++) for (let i = 0; i < 6; i++) brick(X + 3.5, .1 + row * .2, -2.6 + i * .8 + (row % 2) * .4, .4 * (R() < .5 ? 1 : 2) - .02 + 0, legoCols[(i + row) % 4]);
+  E.colliders.push({ minX: X + 3.2, maxX: X + 4, minZ: -3, maxZ: 2.3 });
+  // 積木房子
+  for (let row = 0; row < 4; row++) for (let i = 0; i < 3; i++) brick(X + 3.5, .7 + row * .2, -1.8 + i * .4, .38, [0x20b040, 0xff8020, 0xe03030, 0xffc020][(row + i) % 4]);
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(.75, .5, 4), cm(0x20c050, { roughness: .4 })); roof.position.set(X + 3.5, 1.75, -1.4); roof.rotation.y = Math.PI / 4; g.add(roof);
+  brick(X + 2.8, .1, 1.2, .4, 0x2050ff);
+  const studGeo = new THREE.CylinderGeometry(.06, .06, .06, 10);
+  const inst = new THREE.InstancedMesh(studGeo, cm(0xffffff, { roughness: .35 }), studs.length);
+  const mtx = new THREE.Matrix4(), col = new THREE.Color();
+  studs.forEach(([x, y, z, c], i) => { for (const dz of [-.1]) { mtx.makeTranslation(x, y, z + dz + .1); inst.setMatrixAt(i, mtx); inst.setColorAt(i, col.set(c)); } });
+  g.add(inst);
+  // 前景植物
+  const pot = cyl(g, .22, .17, .4, X - 2.0, .2, 2.2, cm(0x2a2a2a)); collider(E, X - 2.25, X - 1.75, 1.95, 2.45);
+  const leaf = cm(0x1c3a1c, { side: THREE.DoubleSide, roughness: 1 });
+  for (let i = 0; i < 14; i++) {
+    const l = new THREE.Mesh(new THREE.SphereGeometry(.12, 8, 6), leaf); l.scale.set(1.4, .2, .7);
+    l.position.set(X - 2.0 + (R() - .5) * .6, .7 + R() * 1.1, 2.2 + (R() - .5) * .5); l.rotation.set(R(), R() * 6, R()); g.add(l);
+  }
+  // 燈光
+  const lamp = new THREE.PointLight(0xffd8a0, 2.6, 8, 1.5); lamp.position.set(X, 2.2, -1.3); g.add(lamp); E.lamp = lamp;
+  cyl(g, .25, .35, .25, X, 2.42, -1.3, cm(0xeeeeee, { emissive: 0x554433 }));
+  const tvL = new THREE.PointLight(0x8090ff, 0, 4, 2); tvL.position.set(X - 3, 1, -1.5); g.add(tvL); E.tvL = tvL;
+  const winL = new THREE.PointLight(0x7090b0, 1.2, 6, 1.6); winL.position.set(X - 2.6, 1.4, -4.2); g.add(winL);
+  // 玄關門
+  E.door = box(g, 1, 2.1, .08, X + 2.5, 1.05, 3.95, cm(0x8c7a64));
+  box(g, .1, .05, .1, X + 2.15, 1.0, 3.88, M.metal);
+}
+
+/* =========================================================
+   監視攝影機
+   ========================================================= */
+function secCam(x, y, z, lx, ly, lz, name) {
+  const c = new THREE.PerspectiveCamera(72, innerWidth / innerHeight, .05, 60); c.position.set(x, y, z); c.lookAt(lx, ly, lz); c.userData.name = name; scene.add(c); return c;
+}
+const secCams = [
+  secCam(6.6, 2.6, 5.6, -2, .6, -3, 'CAM 01 ─ 3F オフィス東'),
+  secCam(-6.6, 2.6, -5.6, 3, .4, 3, 'CAM 02 ─ 3F オフィス西'),
+  secCam(101.3, 2.45, -.5, 100, .6, -13, 'CAM 03 ─ B1 廊下'),
+  secCam(98.7, 2.45, -21.5, 100.4, .6, -9, 'CAM 04 ─ B1 廊下奥'),
+  secCam(203.6, 2.5, 3.6, 197.5, .8, -1.5, 'CAM 05 ─ B1 警備室'),
+  secCam(204.6, 2.5, 4.6, 208.5, .7, -1, 'CAM 06 ─ B1 自販機コーナー'),
+];
+const monCams = [0, 1, 2, 3, 5];
+const monRTs = monCams.map(() => new THREE.WebGLRenderTarget(192, 144));
+monRTs.forEach((rt, i) => { C.screens[i].material = new THREE.MeshBasicMaterial({ map: rt.texture, color: new THREE.Color(2.6, 2.9, 2.6) }); });
+C.screens[6].material = bm(staticTex, { color: 0xffffff });
+C.screens[5].material = new THREE.MeshBasicMaterial({ map: monRTs[4].texture, color: new THREE.Color(2.6, 2.9, 2.6) });
+[7, 10, 11].forEach(i => C.screens[i].material = new THREE.MeshBasicMaterial({ map: monRTs[i % 4].texture, color: new THREE.Color(2.4, 2.6, 2.4) }));
+
+/* =========================================================
+   音效（WebAudio 即時合成）
+   ========================================================= */
+const AU = { ctx: null };
+function initAudio() {
+  if (AU.ctx) return;
+  const ctx = AU.ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const master = AU.master = ctx.createGain(); master.gain.value = .9; master.connect(ctx.destination);
+  const buf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate); const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = R() * 2 - 1; AU.noise = buf;
+  const loopNoise = (type, f, q, gain) => {
+    const s = ctx.createBufferSource(); s.buffer = buf; s.loop = true; const fl = ctx.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q;
+    const gn = ctx.createGain(); gn.gain.value = gain; s.connect(fl); fl.connect(gn); gn.connect(master); s.start(); return gn;
+  };
+  // 日光燈嗡嗡聲
+  AU.hum = ctx.createGain(); AU.hum.gain.value = .0; AU.hum.connect(master);
+  for (const [f, v] of [[100, .02], [200, .008], [50, .03]]) { const o = ctx.createOscillator(); o.type = f === 50 ? 'sine' : 'sawtooth'; o.frequency.value = f; const gg = ctx.createGain(); gg.gain.value = v; const lp = ctx.createBiquadFilter(); lp.frequency.value = 500; o.connect(lp); lp.connect(gg); gg.connect(AU.hum); o.start(); }
+  // 低頻壓迫感
+  AU.drone = ctx.createGain(); AU.drone.gain.value = .0; AU.drone.connect(master);
+  for (const f of [38, 40.5, 57]) { const o = ctx.createOscillator(); o.frequency.value = f; o.connect(AU.drone); o.start(); }
+  AU.air = loopNoise('lowpass', 300, .5, .025);
+  AU.stat = loopNoise('bandpass', 3200, .6, 0);
+  AU.sweep = loopNoise('bandpass', 1400, 1.2, 0);
+  AU.heart = 0;
+}
+function env(g, t, a, peak, dec) { g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(peak, t + a); g.gain.exponentialRampToValueAtTime(.0001, t + a + dec); }
+function sNoise(dur, f, peak, type = 'lowpass', dec = dur) {
+  if (!AU.ctx) return; const c = AU.ctx, t = c.currentTime, s = c.createBufferSource(); s.buffer = AU.noise;
+  const fl = c.createBiquadFilter(); fl.type = type; fl.frequency.value = f; const g = c.createGain(); env(g, t, .005, peak, dec);
+  s.connect(fl); fl.connect(g); g.connect(AU.master); s.start(t, R()); s.stop(t + dur + .1);
+}
+function sTone(f0, f1, dur, peak, type = 'sine', a = .01) {
+  if (!AU.ctx) return; const c = AU.ctx, t = c.currentTime, o = c.createOscillator(); o.type = type;
+  o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(Math.max(f1, 1), t + dur);
+  const g = c.createGain(); env(g, t, a, peak, dur); o.connect(g); g.connect(AU.master); o.start(t); o.stop(t + dur + .1);
+}
+const SFX = {
+  step: () => sNoise(.12, 380 + R() * 200, .18 + R() * .08, 'lowpass', .1),
+  sting: () => { sNoise(1.8, 2500, .9, 'highpass', 1.6); sTone(900, 50, 1.6, .5, 'sawtooth'); sTone(1300, 70, 1.4, .3, 'square'); sTone(55, 30, 2.2, .7, 'sine'); },
+  thud: () => { sTone(90, 35, .5, .8); sNoise(.3, 300, .5); },
+  door: () => { sTone(70, 40, .6, .6); sNoise(.4, 600, .3); setTimeout(() => sTone(180, 260, .5, .08, 'sawtooth', .1), 120); },
+  click: () => { sNoise(.03, 3000, .3, 'highpass', .03); sTone(1800, 1700, .04, .05, 'square'); },
+  beep: (ok) => { sTone(ok ? 880 : 220, ok ? 880 : 200, .18, .12, 'square'); if (ok) setTimeout(() => sTone(1320, 1320, .18, .1, 'square'), 140); },
+  crackle: () => { for (let i = 0; i < 6; i++) setTimeout(() => sNoise(.05, 4000, .25, 'bandpass', .05), i * 50 + R() * 40); },
+  bell: () => { sTone(659, 655, 1.2, .3, 'sine', .005); setTimeout(() => sTone(523, 520, 1.6, .3, 'sine', .005), 600); },
+  heart: () => { sTone(60, 40, .15, .7); setTimeout(() => sTone(55, 38, .15, .5), 180); },
+  whisper: () => { sNoise(1.5, 1800, .2, 'bandpass', 1.4); },
+};
+function setGain(node, v, t = .3) { if (AU.ctx && node) node.gain.setTargetAtTime(v, AU.ctx.currentTime, t); }
+
+/* =========================================================
+   遊戲狀態 / 輸入
+   ========================================================= */
+const S = {
+  area: null, canMove: false, canLook: false, dialog: false, camMode: false, camIdx: 0,
+  glitch: 0, glitchT: 0, tint: [1, 1, 1], phase: 'title', started: false, liveMonitors: false, t: 0, clock: 7200,
+};
+const player = { pos: new THREE.Vector3(), yaw: 0, pitch: 0, bob: 0, vel: 0, lastStep: 0, h: 1.6 };
+const keys = {};
+const touchMove = { x: 0, y: 0, active: false };
+
+function goto(area, x, z, yaw, pitch = 0) {
+  if (S.area) S.area.group.visible = false;
+  S.area = area; area.group.visible = true; scene.fog.density = area.fog;
+  player.pos.set(x, player.h, z); player.yaw = yaw; player.pitch = pitch;
+}
+function showAreas(...list) { Object.values(areas).forEach(a => a.group.visible = list.includes(a)); }
+function collide(x, z) {
+  const r = .28;
+  for (const c of S.area.colliders) if (x + r > c.minX && x - r < c.maxX && z + r > c.minZ && z - r < c.maxZ) return true;
+  return false;
+}
+
+addEventListener('keydown', e => {
+  keys[e.code] = true; initAudio();
+  if (e.code === 'KeyF' && S.canMove) toggleFlash();
+  if (['KeyE', 'Space', 'Enter'].includes(e.code)) { if (S.dialog) advance(); else if (e.code === 'KeyE') useTarget(); }
+  if (S.camMode) {
+    if (e.code === 'ArrowRight' || e.code === 'KeyD') switchCam(1);
+    if (e.code === 'ArrowLeft' || e.code === 'KeyA') switchCam(-1);
+    if (e.code === 'KeyR') report();
+    if (e.code === 'KeyQ' || e.code === 'Escape') exitCam();
+  }
+});
+addEventListener('keyup', e => keys[e.code] = false);
+function toggleFlash() { flashOn = !flashOn; SFX.click(); }
+const canvas = renderer.domElement;
+canvas.addEventListener('mousedown', () => {
+  initAudio();
+  if (S.dialog) { advance(); return; }
+  if (!isTouch && S.canLook && !S.camMode && document.pointerLockElement !== canvas) canvas.requestPointerLock?.();
+  else if (document.pointerLockElement === canvas) useTarget();
+});
+addEventListener('mousemove', e => {
+  if (document.pointerLockElement !== canvas || !S.canLook) return;
+  player.yaw -= e.movementX * .0022; player.pitch -= e.movementY * .0022;
+  player.pitch = Math.max(-1.35, Math.min(1.35, player.pitch));
+});
+
+// 觸控
+if (isTouch) {
+  $('touch').style.display = 'block';
+  const stick = $('stick'), knob = stick.firstElementChild;
+  let moveId = null, lookId = null, lx = 0, ly = 0, sx = 0, sy = 0;
+  canvas.addEventListener('touchstart', e => {
+    initAudio();
+    if (S.dialog) { advance(); e.preventDefault(); return; }
+    for (const t of e.changedTouches) {
+      if (t.clientX < innerWidth * .45 && moveId === null) {
+        moveId = t.identifier; sx = t.clientX; sy = t.clientY;
+        stick.style.display = 'block'; stick.style.left = (sx - 55) + 'px'; stick.style.top = (sy - 55) + 'px'; knob.style.transform = '';
+      } else if (lookId === null) { lookId = t.identifier; lx = t.clientX; ly = t.clientY; }
+    }
+    e.preventDefault();
+  }, { passive: false });
+  canvas.addEventListener('touchmove', e => {
+    for (const t of e.changedTouches) {
+      if (t.identifier === moveId) {
+        let dx = t.clientX - sx, dy = t.clientY - sy; const l = Math.hypot(dx, dy), m = 50;
+        if (l > m) { dx *= m / l; dy *= m / l; }
+        knob.style.transform = `translate(${dx}px,${dy}px)`; touchMove.x = dx / m; touchMove.y = dy / m; touchMove.active = true;
+      } else if (t.identifier === lookId && S.canLook) {
+        player.yaw -= (t.clientX - lx) * .005; player.pitch -= (t.clientY - ly) * .005;
+        player.pitch = Math.max(-1.35, Math.min(1.35, player.pitch)); lx = t.clientX; ly = t.clientY;
+      }
+    }
+    e.preventDefault();
+  }, { passive: false });
+  const end = e => {
+    for (const t of e.changedTouches) {
+      if (t.identifier === moveId) { moveId = null; touchMove.x = touchMove.y = 0; touchMove.active = false; stick.style.display = 'none'; }
+      if (t.identifier === lookId) lookId = null;
+    }
+  };
+  canvas.addEventListener('touchend', end); canvas.addEventListener('touchcancel', end);
+  $('tUse').addEventListener('touchstart', e => { e.preventDefault(); initAudio(); if (S.dialog) advance(); else useTarget(); }, { passive: false });
+  $('tLight').addEventListener('touchstart', e => { e.preventDefault(); toggleFlash(); }, { passive: false });
+  $('dlg').style.pointerEvents = 'auto';
+  $('dlg').addEventListener('touchstart', e => { e.preventDefault(); advance(); }, { passive: false });
+}
+
+/* ---------- 互動 ---------- */
+const interactables = [];
+function addUse(obj, label, fn, cond = () => true) {
+  const e = { obj, label, fn, cond, meshes: [] }; obj.traverse(o => { if (o.isMesh) e.meshes.push(o); });
+  e.meshes.forEach(m => m.userData.use = e); interactables.push(e); return e;
+}
+const ray = new THREE.Raycaster(); ray.far = 2.6;
+let target = null;
+function scanUse() {
+  target = null;
+  if (!S.canMove || S.dialog || S.camMode) { $('prompt').style.opacity = 0; return; }
+  const meshes = [];
+  for (const e of interactables) if (e.cond() && isVisible(e.obj)) meshes.push(...e.meshes);
+  ray.setFromCamera({ x: 0, y: 0 }, camera);
+  const hit = ray.intersectObjects(meshes, false)[0];
+  if (hit) target = hit.object.userData.use;
+  $('prompt').innerHTML = target ? `${isTouch ? '' : '<kbd>E</kbd>'}${target.label}` : '';
+  $('prompt').style.opacity = target ? 1 : 0;
+}
+function isVisible(o) { while (o) { if (!o.visible) return false; o = o.parent; } return true; }
+function useTarget() { if (target && S.canMove && !S.dialog) { const t = target; target = null; t.fn(); } }
+
+/* ---------- 對話 ---------- */
+const dlg = { queue: [], done: null, typing: false, full: '', i: 0 };
+function say(lines, opts = {}) {
+  return new Promise(res => {
+    dlg.queue = lines.map(l => Array.isArray(l) ? { jp: l[0], zh: l[1], sp: l[2] } : l);
+    dlg.done = res; S.dialog = true; dlg.lock = opts.lock !== false;
+    if (document.pointerLockElement && !S.canLook) document.exitPointerLock();
+    $('dlg').style.display = 'block'; next();
+  });
+}
+function next() {
+  const l = dlg.queue.shift();
+  if (!l) { $('dlg').style.display = 'none'; S.dialog = false; const d = dlg.done; dlg.done = null; d && d(); return; }
+  $('dlg').querySelector('.sp').textContent = l.sp || '';
+  $('dlg').querySelector('.zh').textContent = l.zh || '';
+  $('dlg').querySelector('.arrow').style.opacity = 0;
+  dlg.full = l.jp; dlg.i = 0; dlg.typing = true; dlg.tick = 0;
+  if (l.sfx) SFX[l.sfx]();
+}
+function typeTick(dt) {
+  if (!S.dialog || !dlg.typing) return;
+  dlg.tick += dt; const n = Math.floor(dlg.tick * 28);
+  if (n > dlg.i) { dlg.i = Math.min(n, dlg.full.length); if (dlg.i % 2) sTone(520 + R() * 40, 500, .03, .015, 'square'); }
+  $('dlg').querySelector('.jp').textContent = dlg.full.slice(0, dlg.i);
+  if (dlg.i >= dlg.full.length) { dlg.typing = false; $('dlg').querySelector('.arrow').style.opacity = 1; }
+}
+let lastAdv = 0;
+function advance() {
+  const now = performance.now(); if (now - lastAdv < 120) return; lastAdv = now;
+  if (dlg.typing) { dlg.i = dlg.full.length; dlg.tick = 999; return; }
+  next();
+}
+
+/* ---------- 畫面工具 ---------- */
+const wait = ms => new Promise(r => setTimeout(r, ms));
+function waitFor(fn) { return new Promise(r => { const iv = setInterval(() => { if (fn()) { clearInterval(iv); r(); } }, 50); }); }
+async function fade(to, ms = 1000) { const f = $('fade'); f.style.transitionDuration = ms + 'ms'; f.style.opacity = to; await wait(ms); }
+async function card(lines, ms = 3200) {
+  const c = $('card'); c.innerHTML = lines.map(([jp, zh]) => `<div class="jp">${jp}</div>${zh ? `<div class="zh">${zh}</div>` : ''}`).join('');
+  c.style.opacity = 1; await wait(ms); c.style.opacity = 0; await wait(900);
+}
+function objective(jp, zh) {
+  const o = $('obj');
+  if (!jp) { o.style.opacity = 0; return; }
+  o.innerHTML = `目標：<b>${jp}</b><div class="zh">${zh}</div>`; o.style.opacity = 1;
+}
+function flash(ms = 120) { const f = $('flash'); f.style.transition = 'none'; f.style.opacity = .85; requestAnimationFrame(() => { f.style.transition = `opacity ${ms}ms`; f.style.opacity = 0; }); }
+function glitch(v, sec) { S.glitch = Math.max(S.glitch, v); S.glitchT = sec; }
+function lookAt(x, y, z, ms = 1200) {
+  const dx = x - player.pos.x, dy = y - player.pos.y, dz = z - player.pos.z;
+  let ty = Math.atan2(-dx, -dz); const tp = Math.atan2(dy, Math.hypot(dx, dz));
+  while (ty - player.yaw > Math.PI) ty -= Math.PI * 2; while (ty - player.yaw < -Math.PI) ty += Math.PI * 2;
+  const y0 = player.yaw, p0 = player.pitch, t0 = performance.now();
+  return new Promise(res => {
+    const step = () => { const k = Math.min(1, (performance.now() - t0) / ms), e = k * k * (3 - 2 * k);
+      player.yaw = y0 + (ty - y0) * e; player.pitch = p0 + (tp - p0) * e; if (k < 1) requestAnimationFrame(step); else res(); };
+    step();
+  });
+}
+function walkTo(P, x, z, speed = 1.1) {
+  return new Promise(res => {
+    P.walking = { x, z, speed, res }; faceTo(P.g, x, z);
+  });
+}
+const walkers = [];
+function updateWalker(P, dt) {
+  const w = P.walking; if (!w) { P.walk(0, 0); return; }
+  const dx = w.x - P.g.position.x, dz = w.z - P.g.position.z, d = Math.hypot(dx, dz);
+  if (d < .05) { P.walking = null; P.walk(0, 0); w.res(); return; }
+  const s = Math.min(d, w.speed * dt); P.g.position.x += dx / d * s; P.g.position.z += dz / d * s;
+  P.wt = (P.wt || 0) + dt * w.speed; P.walk(P.wt * 1.6, 1);
+}
+
+/* =========================================================
+   劇情
+   ========================================================= */
+let gen = 0;  // 防止重試時舊流程繼續跑
+async function startGame() {
+  $('title').style.display = 'none'; initAudio();
+  const my = ++gen;
+  await card([['20XX年 10月6日　深夜1時', '20XX年 10月6日 深夜1點']], 2600);
+  if (my !== gen) return;
+  await card([['新しいバイト先は、都内のオフィスビルの夜勤警備だった。', '新的打工地點，是東京都內一棟辦公大樓的夜班警衛。'], ['今夜が、初出勤だ。', '今晚，是第一天上班。']], 4200);
+  officeScene(my);
+}
+
+async function officeScene(my) {
+  S.phase = 'office';
+  showAreas(); goto(A, 0, 4.5, 0, -.05);
+  setGain(AU.hum, .4); setGain(AU.drone, .05);
+  const boss = A.boss; boss.g.visible = true; boss.g.position.set(1.2, 0, -2.6); faceTo(boss.g, 0, 4.5);
+  S.canLook = true; S.canMove = false;
+  await fade(0, 1800);
+  await walkTo(boss, .7, 2.6, 1.0);
+  if (my !== gen) return;
+  faceTo(boss.g, player.pos.x, player.pos.z);
+  await lookAt(.7, 1.6, 2.6, 700);
+  await say([
+    ['ああ、新人の警備員か。', '啊，你就是新來的警衛啊。', '上司'],
+    ['今夜はお前一人だ。俺はもう帰る。', '今晚只有你一個人值班，我要先回去了。', '上司'],
+    ['地下の警備室で、監視カメラを確認してくれ。', '去地下室的警衛室，確認監視器畫面。', '上司'],
+    ['もし何か「おかしなもの」が映ったら……すぐに報告しろ。', '如果畫面上出現什麼「奇怪的東西」……立刻回報。', '上司'],
+    ['……それと。', '……還有。', '上司'],
+    ['廊下の清掃員には、話しかけるな。', '不要跟走廊上的清潔工說話。', '上司'],
+  ]);
+  if (my !== gen) return;
+  walkTo(boss, -6, 5.5, 1.3).then(() => { boss.g.visible = false; A.bossLight.intensity = 0; });
+  S.canMove = true;
+  objective('非常口から地下の警備室へ向かう', '從「非常口」緊急出口前往地下室的警衛室');
+}
+addUse(A.door, '開ける　/ 開門', async () => {
+  if (S.phase !== 'office') return;
+  S.phase = 'toCorridor'; S.canMove = false; SFX.door(); A.boss.g.visible = false;
+  await fade(1, 900); corridorScene(gen);
+});
+
+let cleanerTalked = 0, cleanerSeen = false;
+async function corridorScene(my) {
+  S.phase = 'corridor'; showAreas(); goto(B, 100, -.8, 0); objective('廊下の奥、警備室へ', '前往走廊盡頭的警衛室');
+  setGain(AU.hum, .7);
+  await fade(0, 1200); S.canMove = true;
+}
+addUse(B.cleaner.g, '話しかける / 搭話', async () => {
+  S.canMove = false; cleanerTalked++;
+  if (cleanerTalked === 1) {
+    await say([['あの……こんな時間に掃除ですか？', '那個……這種時間在打掃嗎？', '自分'], ['……………', '……………', '清掃員'], ['……床が、汚れてしまったので。', '……因為地板，弄髒了。', '清掃員']]);
+  } else if (cleanerTalked === 2) {
+    glitch(.5, .6); SFX.crackle();
+    await say([['……あなたも、すぐに汚れる。', '……你也，很快就會弄髒的。', '清掃員']]);
+  } else await say([['（もう話しかけない方がいい……）', '（最好別再跟她說話了……）', '自分']]);
+  S.canMove = true;
+}, () => S.phase === 'corridor');
+addUse(B.door, '警備室に入る / 進入警衛室', async () => {
+  S.canMove = false; SFX.door(); await fade(1, 900); securityScene(gen);
+}, () => S.phase === 'corridor');
+
+/* ---------- 警備室 + 監視器異常 ---------- */
+const anomalies = [
+  { cam: 0, name: 'chair', on() { const c = A.chairs[1]; c.userData.p = c.position.clone(); c.userData.r = c.rotation.clone(); c.position.set(.6, 0, -.6); c.rotation.set(0, .8, 0); },
+    off() { const c = A.chairs[1]; c.position.copy(c.userData.p); c.rotation.copy(c.userData.r); } },
+  { cam: 1, name: 'boss', on() { const b = A.boss; b.g.visible = true; b.g.position.set(-4.2, 0, -4.3); faceTo(b.g, -6.6, -5.6); b.armR.rotation.set(0, 0, 0); A.bossLight.intensity = 0; b.head.rotation.x = -.35; },
+    off() { A.boss.g.visible = false; A.boss.head.rotation.x = 0; } },
+  { cam: 1, name: 'screens', on() { A.redScreens.forEach(s => s.material = A.redMat); }, off() { A.redScreens.forEach(s => s.material = A.normalScreen); } },
+  { cam: 2, name: 'cleanerGone', on() { B.cleaner.g.visible = false; }, off() { B.cleaner.g.visible = true; } },
+  { cam: 2, name: 'cleanerStare', on() { const c = B.cleaner.g; c.userData.p = c.position.clone(); c.userData.r = c.rotation.y; c.position.set(100.9, 0, -2.6); faceTo(c, 101.3, -.5); B.cleaner.head.rotation.x = -.6; },
+    off() { const c = B.cleaner.g; c.position.copy(c.userData.p); c.rotation.y = c.userData.r; B.cleaner.head.rotation.x = 0; } },
+  { cam: 3, name: 'text', on() { B.wallText.visible = true; }, off() { B.wallText.visible = false; } },
+  { cam: 5, name: 'vendFig', on() { C.vendFig.g.visible = true; }, off() { C.vendFig.g.visible = false; } },
+  { cam: 5, name: 'vendOff', on() { C.vend[0].fr.material.color.setScalar(.05); C.vend[0].vl.intensity = 0; }, off() { C.vend[0].fr.material.color.setScalar(1); C.vend[0].vl.intensity = 2.2; } },
+  { cam: 0, name: 'lightsOut', on() { A.redL.color.set(0x2040ff); A.redL.intensity = 8; }, off() { A.redL.color.set(0xff1a10); A.redL.intensity = 3.5; } },
+];
+const AN = { running: false, active: new Set(), timer: 0, reported: 0, need: 5, wrong: 0 };
+function resetAnomalies() { AN.active.forEach(a => a.off()); AN.active.clear(); AN.timer = 9; AN.reported = 0; AN.wrong = 0; AN.running = false; }
+function spawnAnomaly() {
+  const pool = anomalies.filter(a => !AN.active.has(a) && !anomalies.some(b => AN.active.has(b) && b.cam === a.cam && (b.name.startsWith('cleaner') && a.name.startsWith('cleaner') || b.name === 'boss' && a.name === 'boss')));
+  if (!pool.length) return;
+  const a = pool[Math.floor(R() * pool.length)]; a.on(); AN.active.add(a);
+  if (S.camMode && S.camIdx === a.cam) glitch(.4, .3);
+  SFX.crackle();
+}
+function updateAnomalies(dt) {
+  if (!AN.running) return;
+  AN.timer -= dt; S.clock += dt * 6;
+  if (AN.timer <= 0) { spawnAnomaly(); AN.timer = 13 + R() * 9; }
+  if (AN.active.size >= 4) { AN.running = false; caught('異常を放置しすぎた……　/ 放置太多異常了……', 'security'); }
+}
+async function securityScene(my) {
+  S.phase = 'security'; showAreas(C); goto(C, 201.5, 3.2, 0);
+  resetAnomalies();
+  B.cleaner.g.visible = true; A.boss.g.visible = false;
+  showAreas(A, B, C); S.area = C; scene.fog.density = C.fog; S.liveMonitors = true;
+  setGain(AU.hum, .5);
+  await fade(0, 1200);
+  await say([['ここが警備室か……', '這裡就是警衛室啊……', '自分'], ['机のモニターで、カメラを確認しよう。', '用桌上的螢幕確認監視器畫面吧。', '自分']]);
+  if (my !== gen) return;
+  S.canMove = true;
+  objective('机のモニターを調べる', '調查桌上的螢幕（監視系統）');
+}
+const deskUse = () => S.phase === 'security' || S.phase === 'watch';
+addUse(C.desk2.mon.g, '監視カメラを見る / 查看監視器', () => enterCam(), deskUse);
+addUse(C.desk1.mon.g, '監視カメラを見る / 查看監視器', () => enterCam(), deskUse);
+addUse(C.tv.g, '小さなテレビ / 小電視', async () => { S.canMove = false; await say([['……砂嵐しか映らない。', '……只有雜訊。', '自分']]); S.canMove = true; }, () => S.phase === 'watch' || S.phase === 'security');
+
+async function enterCam() {
+  S.canMove = false; S.canLook = false;
+  if (document.pointerLockElement) document.exitPointerLock();
+  player.pos.set(197.65, 1.2, -1.25); player.yaw = Math.PI / 2; player.pitch = -.05;
+  if (S.phase === 'security') {
+    S.phase = 'watch';
+    await say([
+      ['カメラは全部で6台。', '監視器一共有6台。', '自分'],
+      ['いつもと違う「異常」を見つけたら、報告ボタンを押す。', '發現和平常不同的「異常」，就按下回報按鈕。', '自分'],
+      ['異常を放置しすぎると……危険だ、と言われた。', '聽說如果放置太多異常……會很危險。', '自分'],
+      ['まずは、いつもの映像をよく覚えておこう。', '先把正常的畫面好好記住吧。', '自分'],
+    ]);
+    AN.running = true; AN.timer = 14;
+    objective('異常を見つけて報告する（0/' + AN.need + '）', '找出異常並回報（← → 切換鏡頭，R 回報）');
+  }
+  S.camMode = true; C.me.g.visible = true; $('camhud').style.display = 'block'; $('cross').style.display = 'none'; setCamUI(); SFX.click();
+}
+function exitCam() {
+  if (!S.camMode || S.locked) return;
+  S.camMode = false; C.me.g.visible = false; $('camhud').style.display = 'none'; $('cross').style.display = '';
+  player.pos.set(197.9, player.h, -1.25); S.canMove = true; S.canLook = true; SFX.click();
+}
+function switchCam(d) { if (S.locked) return; S.camIdx = (S.camIdx + d + secCams.length) % secCams.length; setCamUI(); SFX.click(); glitch(.35, .15); }
+function setCamUI() { $('camName').textContent = secCams[S.camIdx].userData.name; $('camCount').textContent = `報告 ${AN.reported}/${AN.need}`; }
+function camMsg(t, col = '#fff') { const m = $('camMsg'); m.textContent = t; m.style.color = col; m.style.opacity = 1; clearTimeout(m._t); m._t = setTimeout(() => m.style.opacity = 0, 1600); }
+async function report() {
+  if (!S.camMode || S.locked || !AN.running) return;
+  S.locked = true; glitch(.9, .7); SFX.crackle(); camMsg('報告中……');
+  await wait(1100);
+  const hit = [...AN.active].find(a => a.cam === S.camIdx);
+  if (hit) {
+    hit.off(); AN.active.delete(hit); AN.reported++; SFX.beep(true); camMsg('異常を修正しました　/ 異常已排除', '#9f9');
+    AN.timer = Math.max(AN.timer, 6);
+  } else { AN.wrong++; SFX.beep(false); camMsg('異常は見つかりませんでした　/ 沒有發現異常', '#f99'); AN.timer -= 4; }
+  setCamUI(); objective('異常を見つけて報告する（' + AN.reported + '/' + AN.need + '）', '找出異常並回報（← → 切換鏡頭，R 回報）');
+  S.locked = false;
+  if (AN.reported >= AN.need) finalScare(gen);
+}
+$('bPrev').onclick = () => switchCam(-1); $('bNext').onclick = () => switchCam(1);
+$('bReport').onclick = () => report(); $('bExit').onclick = () => exitCam();
+
+async function finalScare(my) {
+  AN.running = false; S.locked = true; AN.active.forEach(a => a.off()); AN.active.clear();
+  await wait(2500); if (my !== gen) return;
+  camMsg('…………');
+  await wait(1500);
+  C.ghost.g.visible = true; S.camIdx = 4; setCamUI(); glitch(.8, .6); SFX.crackle(); setGain(AU.stat, .06);
+  await wait(3500); if (my !== gen) return;
+  S.camIdx = 2; setCamUI(); glitch(.6, .3); SFX.crackle();
+  await wait(900);
+  S.camIdx = 4; setCamUI(); C.ghost.g.position.x = 198.6; glitch(1, .5); SFX.whisper();
+  await wait(2200);
+  // 離開監視畫面 → 回頭
+  S.camMode = false; $('camhud').style.display = 'none'; C.me.g.visible = false; setGain(AU.stat, 0);
+  C.light.intensity = 0; objective();
+  player.pos.set(197.65, 1.2, -1.25); player.yaw = Math.PI / 2;
+  C.ghost.g.position.set(198.55, -.05, -1.25); C.ghost.head.rotation.x = .25;
+  await wait(1400);
+  await lookAt(198.55, 1.55, -1.25, 1700);
+  SFX.sting(); flash(200); glitch(1.2, 1.2); S.shake = .6;
+  await wait(900);
+  $('fade').style.transitionDuration = '0ms'; $('fade').style.opacity = 1;
+  S.locked = false; S.liveMonitors = false; C.ghost.g.visible = false; C.light.intensity = 3.2;
+  setGain(AU.hum, 0); await wait(2200);
+  if (my !== gen) return;
+  nightmareScene(my);
+}
+
+/* ---------- 惡夢 ---------- */
+let N = {};
+async function nightmareScene(my) {
+  S.phase = 'nightmare'; showAreas(); goto(D, 298.6, 8.8, .25);
+  N = { tv: false, chase: false, end: false, booth: 0 };
+  D.boothFig.g.visible = false;
+  D.chaser.g.visible = false; D.tv.scr.material = D.tvScreenMat;
+  setGain(AU.drone, .16); setGain(AU.hum, 0); S.tint = [1.15, .85, .85];
+  await card([['…………', ''], ['ここは、どこだ？', '這裡……是哪裡？']], 3000);
+  if (my !== gen) return;
+  await fade(0, 2000);
+  S.canMove = true; S.canLook = true;
+  objective('出口を探す', '尋找出口');
+}
+D.update = (dt) => {
+  if (S.phase !== 'nightmare') return;
+  const p = player.pos;
+  D.amb.intensity = 1.2 + Math.sin(S.t * 13) * .2 + (R() < .03 ? -1 : 0);
+  D.redTube.intensity = R() < .025 ? 1 : 9;
+  if (N.booth === 0 && p.z < 7 && p.x > 299) { N.booth = 1; D.boothFig.g.visible = true; faceTo(D.boothFig.g, p.x, p.z); SFX.whisper(); N.boothT = 1.3; }
+  if (N.booth === 1) { N.boothT -= dt; if (N.boothT <= 0) { N.booth = 2; D.boothFig.g.visible = false; glitch(.6, .25); SFX.crackle(); } }
+  if (!N.cave && p.z < -.5) { N.cave = true; objective('奥へ進む', '往深處前進'); }
+  if (!N.tv && p.z < -6.5) { N.tv = true; D.tv.scr.material = D.tvFace; SFX.crackle(); glitch(.7, .5); setGain(AU.stat, .05); setTimeout(() => { D.tv.scr.material = D.tvScreenMat; }, 1400); }
+  if (!N.chase && p.z < -13.5) {
+    N.chase = true; const c = D.chaser.g; c.visible = true; c.position.set(300, 0, p.z + 6.5); SFX.sting(); glitch(.8, .5);
+    say([['走れ！！', '快跑！！（SHIFT／搖桿推到底）']], { lock: false }).then(() => { });
+    setTimeout(() => { if (S.dialog) advance(); if (S.dialog) advance(); }, 1300);
+    objective('逃げろ', '逃跑！到紅色的門');
+  }
+  if (N.chase && !N.end) {
+    const c = D.chaser.g, dx = p.x - c.position.x, dz = p.z - c.position.z, d = Math.hypot(dx, dz);
+    const sp = 3.35 * dt; c.position.x += dx / d * sp; c.position.z += dz / d * sp; faceTo(c, p.x, p.z);
+    D.chaser.wt = (D.chaser.wt || 0) + dt; D.chaser.walk(D.chaser.wt * 2.6, 1.3);
+    AU.heartT = (AU.heartT || 0) - dt; if (AU.heartT <= 0) { SFX.heart(); AU.heartT = Math.max(.35, d / 10); }
+    if (d < 4) glitch(.4 + (4 - d) * .2, .1);
+    if (d < .9) { N.end = true; caught('捕まった……　/ 被抓到了……', 'nightmare'); }
+  }
+  if (!N.end && p.z < -28.9) { N.end = true; S.canMove = false; SFX.door(); apartmentScene(gen); }
+};
+
+/* ---------- 公寓 ---------- */
+let AP = {};
+async function apartmentScene(my) {
+  $('fade').style.transitionDuration = '0ms'; $('fade').style.opacity = 1; objective();
+  setGain(AU.drone, 0); setGain(AU.stat, 0); D.chaser.g.visible = false;
+  await wait(1500);
+  S.tint = [1, 1, 1];
+  S.phase = 'apartment'; showAreas(); goto(E, 397.6, 3.0, -.35, -.05);
+  AP = { tv: false, bell: false };
+  E.tvL.intensity = 0; E.tv.scr.material = E.tvScreenMat;
+  await card([['……はっ！', '……！']], 1800);
+  if (my !== gen) return;
+  await fade(0, 2200);
+  await say([['……夢、だったのか？', '……是夢嗎？', '自分'], ['どうやって家に帰ってきたのか、覚えていない……', '完全不記得自己是怎麼回到家的……', '自分']]);
+  S.canMove = true; S.canLook = true;
+  objective('テレビをつける', '打開電視');
+}
+addUse(E.tv.g, 'テレビをつける / 開電視', async () => {
+  AP.tv = true; S.canMove = false; SFX.click(); drawNews(0); E.tv.scr.material = bm(newsTex); E.tvL.intensity = 1.5;
+  await say([['「速報です。昨夜未明、都内のオフィスビルで――」', '「插播快訊。昨天深夜，東京都內一棟辦公大樓――」', 'テレビ'],
+    ['「夜勤の警備員の男性が、行方不明になりました。」', '「一名值夜班的男性警衛失蹤了。」', 'テレビ']]);
+  drawNews(1);
+  await say([['「現場の警備室には、大量の血痕が残されており……」', '「現場的警衛室裡，留下了大量的血跡……」', 'テレビ']]);
+  drawNews(2); glitch(.4, .3);
+  await say([['「防犯カメラには、清掃員のような人物が映っていたということです。」', '「據說監視器拍到了一名疑似清潔工的人物。」', 'テレビ'],
+    ['……え？', '……咦？', '自分'], ['行方不明の警備員って……俺のことか？', '失蹤的警衛……是在說我嗎？', '自分']]);
+  E.tv.scr.material = E.tvScreenMat; setGain(AU.stat, .05); glitch(.8, .5); SFX.crackle();
+  await wait(1200); setGain(AU.stat, 0); E.tvL.intensity = 0;
+  await wait(800); SFX.bell(); AP.bell = true;
+  await wait(1600);
+  await say([['…………', '…………', '自分'], ['こんな時間に、誰だ……？', '這種時間……會是誰？', '自分']]);
+  S.canMove = true;
+  objective('玄関を確認する', '去玄關看看');
+}, () => S.phase === 'apartment' && !AP.tv);
+addUse(E.door, '玄関を開ける / 開門', async () => {
+  S.canMove = false; S.phase = 'end'; objective();
+  await say([['……どちら様ですか？', '……請問是哪位？', '自分']]);
+  await wait(1200);
+  await say([['……床が、汚れてしまったので。', '……因為地板，弄髒了。', '？？？']]);
+  SFX.sting(); glitch(1.2, 1.2); flash(150); E.lamp.intensity = 0;
+  await wait(700);
+  $('fade').style.transitionDuration = '0ms'; $('fade').style.opacity = 1;
+  setGain(AU.drone, 0); setGain(AU.hum, 0);
+  await wait(2500);
+  ending();
+}, () => S.phase === 'apartment' && AP.bell);
+
+async function ending() {
+  objective();
+  const c = $('card');
+  c.innerHTML = `<div class="jp" style="font-size:clamp(30px,6vw,60px);letter-spacing:.4em">第一夜　完</div><div class="zh">第一夜 ── 完</div>
+    <div class="zh" style="margin-top:30px">To be continued……（更多章節製作中）</div><button id="endbtn" style="pointer-events:auto">タイトルへ / 回標題</button>`;
+  c.style.opacity = 1;
+  $('endbtn').onclick = () => location.reload();
+}
+
+/* ---------- 死亡 / 重試 ---------- */
+let retryPoint = 'security';
+async function caught(msg, where) {
+  const my = gen; S.canMove = false; S.canLook = false; S.camMode = false; $('camhud').style.display = 'none';
+  retryPoint = where;
+  if (where === 'security') {
+    // 清潔工出現在面前
+    C.me.g.visible = false; C.light.intensity = 0;
+    player.pos.set(197.9, player.h, -1.25); player.yaw = Math.PI / 2; player.pitch = 0;
+    C.ghost.g.visible = true; C.ghost.g.position.set(196.85, 0, -1.25); C.ghost.g.rotation.y = Math.PI / 2;
+  }
+  SFX.sting(); flash(200); glitch(1.3, 1.5); S.shake = .7;
+  await wait(1100);
+  if (my !== gen) return;
+  $('fade').style.transitionDuration = '0ms'; $('fade').style.opacity = 1;
+  C.ghost.g.visible = false; C.light.intensity = 3.2; C.ghost.g.rotation.y = -Math.PI / 2;
+  $('overMsg').textContent = msg; $('over').style.display = 'flex';
+  if (document.pointerLockElement) document.exitPointerLock();
+}
+$('retry').onclick = () => {
+  $('over').style.display = 'none'; const my = ++gen; S.dialog = false; $('dlg').style.display = 'none';
+  S.tint = [1, 1, 1];
+  if (retryPoint === 'security') { S.phase = 'security'; securityScene(my); }
+  else nightmareScene(my);
+};
+
+/* =========================================================
+   主迴圈
+   ========================================================= */
+const clock = new THREE.Clock();
+let monIdx = 0, frame = 0;
+function update(dt) {
+  S.t += dt; frame++;
+  // 玩家移動
+  let mx = 0, mz = 0;
+  if (S.canMove && !S.dialog) {
+    if (keys.KeyW || keys.ArrowUp) mz += 1; if (keys.KeyS || keys.ArrowDown) mz -= 1;
+    if (keys.KeyD || keys.ArrowRight) mx += 1; if (keys.KeyA || keys.ArrowLeft) mx -= 1;
+    if (touchMove.active) { mx += touchMove.x; mz -= touchMove.y; }
+  }
+  const len = Math.hypot(mx, mz);
+  if (len > .05) {
+    const run = keys.ShiftLeft || keys.ShiftRight || (touchMove.active && len > .92);
+    const sp = (run ? 4.2 : 2.3) * Math.min(1, len) * dt;
+    mx /= Math.max(1, len); mz /= Math.max(1, len);
+    const fx = -Math.sin(player.yaw), fz = -Math.cos(player.yaw), rx = Math.cos(player.yaw), rz = -Math.sin(player.yaw);
+    const dx = (fx * mz + rx * mx) * sp / Math.min(1, Math.max(len, .01)) * Math.min(1, len), dz = (fz * mz + rz * mx) * sp / Math.min(1, Math.max(len, .01)) * Math.min(1, len);
+    if (!collide(player.pos.x + dx, player.pos.z)) player.pos.x += dx;
+    if (!collide(player.pos.x, player.pos.z + dz)) player.pos.z += dz;
+    player.bob += dt * (run ? 13 : 8.5);
+    const ph = Math.floor(player.bob / Math.PI); if (ph !== player.lastStep) { player.lastStep = ph; SFX.step(); }
+  } else player.bob += (Math.round(player.bob / Math.PI) * Math.PI - player.bob) * Math.min(1, dt * 6);
+  // 相機
+  S.shake = Math.max(0, (S.shake || 0) - dt);
+  camera.position.copy(player.pos);
+  camera.position.y = (S.camMode || S.phase === 'watch' && !S.canMove ? 1.2 : player.h) + Math.sin(player.bob) * .035;
+  if (S.phase === 'watch' && !S.canMove) camera.position.y = player.pos.y;
+  camera.rotation.set(player.pitch + (R() - .5) * S.shake * .1, player.yaw + (R() - .5) * S.shake * .1, Math.sin(player.bob * .5) * .006);
+  flashlight.intensity = flashOn && !S.camMode ? 14 * (1 - (R() < .004 ? .7 : 0)) : 0;
+  // NPC
+  updateWalker(A.boss, dt);
+  if (B.cleaner.g.visible) {
+    const c = B.cleaner; c.broom.rotation.y = Math.sin(S.t * 3.2) * .45; c.armR.rotation.z = Math.sin(S.t * 3.2) * .2; c.armL.rotation.z = -Math.sin(S.t * 3.2) * .15;
+    if (S.area === B) {
+      const d = player.pos.distanceTo(c.g.position);
+      setGain(AU.sweep, (.09 * Math.max(0, 1 - d / 9)) * (.5 + .5 * Math.abs(Math.sin(S.t * 3.2))), .05);
+      if (!cleanerSeen && d < 5) { cleanerSeen = true; S.canMove = false; say([['（清掃員……？　こんな時間に。）', '（清潔工……？在這種時間。）', '自分'], ['（床の赤いのは……まさか、血？）', '（地上紅色的……難道是，血？）', '自分']]).then(() => S.canMove = true); }
+    } else setGain(AU.sweep, 0, .2);
+  } else setGain(AU.sweep, 0, .2);
+  // 燈光閃爍
+  B.light.intensity = 6 * (R() < .02 ? .2 : 1); B.tube.material.color.setScalar(B.light.intensity > 2 ? 1 : .3);
+  C.light.intensity = C.light.intensity && (R() < .01 ? .6 : 3.2);
+  A.redL.intensity = AN.active.has(anomalies.find(a => a.name === 'lightsOut')) ? 8 : 2.5 + Math.sin(S.t * 2) * 1;
+  if (S.area && S.area.update) S.area.update(dt);
+  updateAnomalies(dt);
+  if (frame % 2 === 0) updateStatic();
+  if (frame % 4 === 0) scanUse();
+  typeTick(dt);
+  $('obj').style.visibility = S.camMode ? 'hidden' : '';
+  // 故障效果
+  if (S.glitchT > 0) S.glitchT -= dt; else S.glitch = Math.max(0, S.glitch - dt * 2);
+  // 監視器 HUD 時間
+  if (S.camMode) { const s = Math.floor(S.clock), hh = String(Math.floor(s / 3600)).padStart(2, '0'), mm = String(Math.floor(s / 60) % 60).padStart(2, '0'), ss = String(s % 60).padStart(2, '0'); $('camTime').textContent = `${hh}:${mm}:${ss}`; }
+}
+
+function render() {
+  if (S.liveMonitors) {
+    const fogD = scene.fog.density; scene.fog.density = .03;
+    const was = flashlight.intensity; flashlight.intensity = 0;
+    C.screens.forEach(m => m.visible = false);
+    renderer.setRenderTarget(monRTs[monIdx]); renderer.render(scene, secCams[monCams[monIdx]]);
+    C.screens.forEach(m => m.visible = true); monIdx = (monIdx + 1) % monRTs.length;
+    scene.fog.density = fogD; flashlight.intensity = was;
+  }
+  const cam = S.camMode ? secCams[S.camIdx] : camera;
+  if (S.camMode) scene.fog.density = .03; else if (S.area) scene.fog.density = S.area.fog;
+  renderer.setRenderTarget(mainRT); renderer.render(scene, cam);
+  post.uniforms.time.value = S.t;
+  post.uniforms.glitch.value = S.glitch;
+  post.uniforms.nv.value = S.camMode ? 1 : 0;
+  post.uniforms.gain.value = S.camMode ? 3.2 : 1.25;
+  post.uniforms.tint.value.set(...(S.area === C && !S.camMode ? [.95, 1.04, .86] : S.tint));
+  renderer.setRenderTarget(null); renderer.render(postScene, postCam);
+}
+function loop() {
+  requestAnimationFrame(loop);
+  const dt = Math.min(clock.getDelta(), .05);
+  update(dt); render();
+}
+addEventListener('resize', resize);
+resize();
+// 標題畫面背景：警備室
+showAreas(C); S.area = C; player.pos.set(203, 1.6, 3); player.yaw = Math.PI * .22; player.pitch = -.08;
+S.liveMonitors = false; $('fade').style.opacity = .55;
+loop();
+$('title').addEventListener('click', () => { if (S.started) return; S.started = true; initAudio(); fade(1, 600).then(startGame); });
+window.__S = S; window.__player = player; window.__AN = AN;
+window.__dbg = { goto, areas, showAreas, enterCam, nightmareScene, apartmentScene, securityScene, officeScene, corridorScene, fade, finalScare, spawnAnomaly, anomalies, gen: () => gen };
+</script>
+</body>
+</html>
