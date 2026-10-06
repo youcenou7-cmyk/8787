@@ -1,0 +1,1425 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<!--ARTIFACT-START-->
+<title>最後的自習室</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&family=Noto+Serif+TC:wght@700;900&family=VT323&display=swap">
+<style>
+/* Layout: one full-bleed low-res 3D viewport; HUD pinned to its corners like a guard's CCTV overlay.
+   Single committed dark look: night building, exit-sign green, fluorescent paper white. */
+:root{
+  --night:#06080a;          /* building at 2am */
+  --panel:#0e1312;          /* guard-room console */
+  --paper:#e8e2d2;          /* handover sheet, fluorescent-lit paper */
+  --dim:#8f9890;            /* worn labels */
+  --exit:#3fd68c;           /* 避難方向指示燈 green */
+  --blood:#c4271f;          /* red ink, 榜單 red */
+  --line:rgba(232,226,210,.16);
+  --f-display:"Noto Serif TC","Songti TC","PMingLiU",serif;
+  --f-body:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
+  --f-mono:"VT323","Courier New",monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var(--paper);font-family:var(--f-body);touch-action:none;user-select:none;-webkit-user-select:none}
+#app{position:fixed;inset:0;overflow:hidden;background:var(--night)}
+#view{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges;display:block}
+#view.cctv{filter:grayscale(1) contrast(1.5) brightness(1.35) sepia(.25) hue-rotate(70deg)}
+#grain{position:absolute;inset:0;width:100%;height:100%;opacity:.09;pointer-events:none;image-rendering:pixelated;mix-blend-mode:screen}
+#fx{position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse at center,transparent 45%,rgba(0,0,0,.75) 100%),
+             repeating-linear-gradient(0deg,rgba(0,0,0,.18) 0 1px,transparent 1px 3px)}
+#redflash{position:absolute;inset:0;background:var(--blood);opacity:0;pointer-events:none;mix-blend-mode:multiply;transition:opacity .15s}
+#fade{position:absolute;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity .6s ease}
+#fade.white{background:#f4f1e8}
+
+/* ---------- HUD */
+#hud{position:absolute;inset:0;pointer-events:none}
+#clock{position:absolute;top:calc(14px + env(safe-area-inset-top,0px));left:16px;font-family:var(--f-mono);font-size:30px;line-height:1;color:var(--exit);text-shadow:0 0 8px rgba(63,214,140,.55);letter-spacing:.04em;font-variant-numeric:tabular-nums}
+#clock small{display:block;font-size:17px;color:var(--dim);text-shadow:none;letter-spacing:.08em;margin-top:4px}
+#tasks{position:absolute;top:calc(14px + env(safe-area-inset-top,0px));right:16px;width:min(270px,52vw);padding:10px 12px;background:rgba(6,8,10,.62);border-left:2px solid var(--exit);font-size:13px;line-height:1.5}
+#tasks h2{margin:0 0 6px;font-size:11px;letter-spacing:.24em;color:var(--dim);font-weight:700}
+#tasks ol{margin:0;padding:0;list-style:none;display:grid;gap:3px}
+#tasks li{display:grid;grid-template-columns:16px 1fr;gap:4px;color:var(--paper)}
+#tasks li::before{content:"□";color:var(--dim)}
+#tasks li.done{color:var(--dim);text-decoration:line-through}
+#tasks li.done::before{content:"■";color:var(--exit)}
+#tasks li.warn{color:#ff8a80}
+#tasks li.warn::before{content:"！";color:var(--blood)}
+#cross{position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px 0 0 -2px;background:rgba(232,226,210,.7);border-radius:50%}
+#cross.on{width:8px;height:8px;margin:-4px 0 0 -4px;background:transparent;border:1.5px solid var(--exit)}
+#prompt{position:absolute;left:50%;top:calc(50% + 22px);transform:translateX(-50%);font-size:14px;padding:4px 10px;background:rgba(6,8,10,.7);white-space:nowrap;letter-spacing:.06em}
+#prompt kbd{font-family:var(--f-mono);font-size:17px;color:var(--night);background:var(--exit);padding:0 5px;margin-right:6px}
+#hold{position:absolute;left:50%;top:calc(50% + 52px);transform:translateX(-50%);width:120px;height:3px;background:rgba(232,226,210,.2)}
+#hold i{display:block;height:100%;width:0;background:var(--exit)}
+#sub{position:absolute;left:50%;bottom:calc(64px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:min(680px,calc(100% - 32px));text-align:center;font-size:clamp(15px,2.3vw,19px);line-height:1.6;text-shadow:0 1px 3px #000,0 0 12px #000}
+#app.touch #sub{bottom:calc(196px + env(safe-area-inset-bottom,0px))}
+#sub b{display:block;font-size:12px;letter-spacing:.2em;color:var(--exit);font-weight:700}
+#sub.red{color:#ff9b93}
+#sub.red b{color:var(--blood)}
+#toast{position:absolute;left:50%;top:22%;transform:translateX(-50%);font-size:14px;padding:6px 14px;background:rgba(6,8,10,.78);border:1px solid var(--line);opacity:0;transition:opacity .3s;max-width:calc(100% - 32px);text-align:center}
+#toast.show{opacity:1}
+#lockhint{position:absolute;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);font-size:12px;color:var(--dim);letter-spacing:.1em}
+#big{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--f-mono);font-size:min(40vw,240px);color:var(--exit);text-shadow:0 0 30px rgba(63,214,140,.6);pointer-events:none}
+#big.red{color:var(--blood);text-shadow:0 0 30px rgba(196,39,31,.7)}
+
+/* ---------- CCTV */
+#cctv{position:absolute;inset:0;pointer-events:none;font-family:var(--f-mono);color:#dfe;font-size:22px;text-shadow:0 0 6px rgba(200,255,220,.6)}
+#cctv .rec{position:absolute;top:calc(16px + env(safe-area-inset-top,0px));left:18px;color:#ff5a4e}
+#cctv #camName{position:absolute;top:calc(16px + env(safe-area-inset-top,0px));right:18px}
+#cctv #camTime{position:absolute;bottom:calc(64px + env(safe-area-inset-bottom,0px));left:18px}
+#cctv .bar{position:absolute;left:0;right:0;bottom:calc(16px + env(safe-area-inset-bottom,0px));display:flex;justify-content:center;gap:10px;pointer-events:auto}
+
+/* ---------- panels */
+.sheet{position:absolute;inset:0;display:grid;place-items:center;background:rgba(0,0,0,.72);padding:16px}
+.paper{width:min(520px,100%);max-height:calc(100% - 32px);overflow:auto;background:var(--paper);color:#24211b;padding:26px 26px 20px;box-shadow:0 20px 60px rgba(0,0,0,.6);transform:rotate(-.6deg);font-size:15px;line-height:1.75}
+.paper h3{font-family:var(--f-display);font-weight:900;font-size:22px;margin:0 0 4px;text-wrap:balance;letter-spacing:.04em}
+.paper .meta{font-size:12px;letter-spacing:.14em;color:#6d665a;margin-bottom:12px;border-bottom:1px solid #b9b19e;padding-bottom:8px}
+.paper ol{padding-left:1.4em;margin:8px 0}
+.paper .sign{text-align:right;font-family:var(--f-display);margin-top:10px}
+.paper .pen{font-family:var(--f-display);color:#1d3f9a;transform:rotate(-2deg);display:inline-block}
+.paper .news h3{font-size:26px;border-top:3px double #24211b;padding-top:6px}
+.paper.ticket{background:#f1ead2;border:2px solid #7d6b45}
+.paper.ticket dl{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:12px 0}
+.paper.ticket dt{color:#6d665a;font-size:13px}
+.paper.ticket dd{margin:0;font-weight:700;font-variant-numeric:tabular-nums}
+.paper .close{margin-top:14px;display:flex;justify-content:flex-end}
+.btn{font:700 15px var(--f-body);letter-spacing:.12em;color:var(--night);background:var(--exit);border:0;padding:10px 18px;cursor:pointer;box-shadow:0 0 18px rgba(63,214,140,.35)}
+.btn.ghost{background:transparent;color:var(--paper);border:1px solid var(--line);box-shadow:none}
+.btn:focus-visible{outline:2px solid var(--paper);outline-offset:3px}
+#choice{position:absolute;left:50%;bottom:calc(120px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);display:grid;gap:10px;width:min(440px,calc(100% - 32px))}
+#choice .btn{text-align:left;background:rgba(6,8,10,.85);color:var(--paper);border:1px solid var(--exit);box-shadow:none;letter-spacing:.04em}
+#choice .btn kbd{font-family:var(--f-mono);color:var(--exit);margin-right:8px}
+
+/* ---------- title & ending */
+.screen{position:absolute;inset:0;overflow:auto;background:
+   radial-gradient(ellipse at 70% 110%,rgba(63,214,140,.13),transparent 55%),
+   linear-gradient(180deg,#05070a,#0a0d0d 70%,#060807);
+  display:flex;align-items:center;justify-content:center;padding:calc(24px + env(safe-area-inset-top,0px)) 16px calc(24px + env(safe-area-inset-bottom,0px))}
+.screen .inner{width:min(760px,100%);display:grid;gap:22px}
+.eyebrow{font-family:var(--f-mono);font-size:20px;color:var(--exit);letter-spacing:.1em;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.eyebrow .tag{border:1px solid var(--exit);padding:0 8px;font-size:18px}
+.title{font-family:var(--f-display);font-weight:900;font-size:clamp(46px,11vw,104px);line-height:1.02;margin:0;letter-spacing:.06em;text-wrap:balance}
+.title span{color:var(--blood)}
+.lede{font-size:16px;line-height:1.9;color:#cfc9ba;max-width:34em;margin:0}
+.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 18px;font-size:13px;color:var(--dim);border-top:1px solid var(--line);padding-top:14px}
+.controls div{display:flex;gap:8px;align-items:baseline}
+.controls kbd{font-family:var(--f-mono);font-size:17px;color:var(--paper);min-width:2.6em}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.note{font-size:12px;color:var(--dim);letter-spacing:.06em}
+#endTitle{font-family:var(--f-display);font-weight:900;font-size:clamp(38px,8vw,72px);margin:0;letter-spacing:.06em}
+#endBody p{font-size:16px;line-height:2;color:#d7d1c2;margin:0 0 10px;max-width:36em}
+#endBody p.chill{color:#ff9b93}
+#endList{display:flex;gap:8px;flex-wrap:wrap}
+#endList span{font-family:var(--f-mono);font-size:18px;padding:0 8px;border:1px solid var(--line);color:var(--dim)}
+#endList span.got{border-color:var(--exit);color:var(--exit)}
+
+/* ---------- touch */
+#touch{position:absolute;inset:0;pointer-events:none}
+#stick{position:absolute;left:22px;bottom:calc(26px + env(safe-area-inset-bottom,0px));width:124px;height:124px;border-radius:50%;border:1.5px solid var(--line);background:rgba(6,8,10,.35);pointer-events:auto;touch-action:none}
+#stick i{position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px 0 0 -26px;border-radius:50%;background:rgba(232,226,210,.25);border:1.5px solid rgba(232,226,210,.5)}
+#tbtns{position:absolute;right:18px;bottom:calc(26px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:repeat(2,64px);gap:10px;pointer-events:auto}
+#tbtns button{width:64px;height:64px;border-radius:50%;border:1.5px solid var(--line);background:rgba(6,8,10,.5);color:var(--paper);font:700 13px var(--f-body);touch-action:none}
+#tbtns button.on{border-color:var(--exit);color:var(--exit)}
+#tbtns #tUse{grid-column:span 2;width:100%;border-radius:32px;border-color:var(--exit);color:var(--exit)}
+@media (max-width:560px){
+  #tasks{font-size:12px;padding:8px 10px}
+  #clock{font-size:24px}
+}
+@media (prefers-reduced-motion:reduce){#fade{transition:none}}
+</style>
+<!--HEAD-END--></head><body>
+<div id="app">
+  <canvas id="view"></canvas>
+  <canvas id="grain" width="160" height="90"></canvas>
+  <div id="fx"></div>
+  <div id="redflash"></div>
+
+  <div id="hud" hidden>
+    <div id="clock">PM 11:42<small>明德大樓 1F</small></div>
+    <div id="tasks"><h2>值班事項</h2><ol id="taskList"></ol></div>
+    <div id="cross"></div>
+    <div id="prompt" hidden></div>
+    <div id="hold" hidden><i></i></div>
+    <div id="sub" hidden></div>
+    <div id="toast"></div>
+    <div id="lockhint" hidden>點一下畫面來控制視角</div>
+  </div>
+  <div id="big" hidden></div>
+
+  <div id="cctv" hidden>
+    <div class="rec">● REC</div>
+    <div id="camName">CAM 01</div>
+    <div id="camTime">2026/10/06 00:00:00</div>
+    <div class="bar">
+      <button class="btn ghost" id="camPrev" type="button">◀ 上一台</button>
+      <button class="btn" id="camExit" type="button">離開</button>
+      <button class="btn ghost" id="camNext" type="button">下一台 ▶</button>
+    </div>
+  </div>
+
+  <div id="sheet" class="sheet" hidden><div id="paper" class="paper"></div></div>
+  <div id="choice" hidden></div>
+
+  <div id="touch" hidden>
+    <div id="stick"><i></i></div>
+    <div id="tbtns">
+      <button id="tLight" type="button">手電筒</button>
+      <button id="tRun" type="button">跑</button>
+      <button id="tUse" type="button">互動</button>
+    </div>
+  </div>
+
+  <div id="fade"></div>
+
+  <section id="title" class="screen">
+    <div class="inner">
+      <div class="eyebrow"><span class="tag">夜間保全</span><span>PM 11:42　明德文理補習班大樓</span></div>
+      <h1 class="title">最後的<br>自<span>習</span>室</h1>
+      <p class="lede">前一位保全老吳沒有交接就離職了。今晚起，這棟四層樓的舊補習班大樓歸你巡。關燈、請加班的人回家、把四樓自習室的門鎖好。做完就能下班，回家陪準備考試的女兒。</p>
+      <div class="row">
+        <button class="btn" id="startBtn" type="button">開始值班</button>
+        <span class="note" id="loadNote">建議戴耳機・約 15–25 分鐘・三種結局</span>
+      </div>
+      <div class="controls" id="ctlDesk">
+        <div><kbd>WASD</kbd>移動</div>
+        <div><kbd>滑鼠</kbd>看</div>
+        <div><kbd>Shift</kbd>跑</div>
+        <div><kbd>E</kbd>互動（長按）</div>
+        <div><kbd>F</kbd>手電筒</div>
+        <div><kbd>Esc</kbd>放開滑鼠</div>
+      </div>
+      <div class="controls" id="ctlTouch" hidden>
+        <div><kbd>左下</kbd>搖桿移動</div>
+        <div><kbd>右半邊</kbd>拖曳看</div>
+        <div><kbd>互動</kbd>可長按</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="ending" class="screen" hidden>
+    <div class="inner">
+      <div class="eyebrow"><span class="tag" id="endTag">結局 A</span><span id="endTime">AM 06:00</span></div>
+      <h2 id="endTitle">鎖上的門</h2>
+      <div id="endBody"></div>
+      <div id="endList"></div>
+      <div class="row"><button class="btn" id="againBtn" type="button">重新值班</button><span class="note" id="endHint"></span></div>
+    </div>
+  </section>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+'use strict';
+(() => {
+const $ = s => document.querySelector(s);
+const isTouch = ('ontouchstart' in window) || matchMedia('(pointer: coarse)').matches;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+let seed = 8787;
+const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+
+/* =========================================================
+   Renderer
+   ========================================================= */
+const canvas = $('#view');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+renderer.setPixelRatio(1);
+const scene = new THREE.Scene();
+const FOG = 0x030405;
+scene.background = new THREE.Color(FOG);
+scene.fog = new THREE.Fog(FOG, 0.5, 15);
+const camera = new THREE.PerspectiveCamera(72, 1, 0.05, 60);
+camera.rotation.order = 'YXZ';
+scene.add(camera);
+const camCCTV = new THREE.PerspectiveCamera(84, 1, 0.05, 60);
+scene.add(camCCTV);
+const hemi = new THREE.HemisphereLight(0x9aa6b8, 0x1a1712, 0.16);
+scene.add(hemi);
+const flash = new THREE.SpotLight(0xfff0d0, 0, 17, 0.5, 0.55, 1.2);
+flash.position.set(0.16, -0.12, 0.1);
+camera.add(flash);
+flash.target.position.set(0, -0.06, -1);
+camera.add(flash.target);
+
+function resize() {
+  const target = innerWidth < 700 ? 230 : 290;
+  const s = Math.max(1, innerHeight / target);
+  renderer.setSize(Math.max(1, Math.round(innerWidth / s)), Math.max(1, Math.round(innerHeight / s)), false);
+  camera.aspect = camCCTV.aspect = innerWidth / Math.max(1, innerHeight);
+  camera.updateProjectionMatrix(); camCCTV.updateProjectionMatrix();
+}
+addEventListener('resize', resize); resize();
+
+/* =========================================================
+   Text used on in-world textures (preloaded with the web font)
+   ========================================================= */
+const RANK = [['王怡君', '台大電機'], ['張家豪', '陽明醫學'], ['林佳穎', '台大醫學'], ['陳彥廷', '清大資工'], ['李宜蓁', '政大法律'], ['吳承翰', '成大建築']];
+const TX = {
+  f1Banner: '明德文理補習班　歡迎蒞臨',
+  f2Banner: '距離學測 87 天　全力衝刺',
+  f3Banner: '今天不讀書　明天變輸家',
+  f4Banner: '距離指考放榜　0 天',
+  b201: ['數學　排列組合', 'C(n,k) = n!／k!(n−k)!', '作業：講義 p.37–42'],
+  b202: ['國文　古文三十篇', '〈師說〉韓愈', '古之學者必有師'],
+  b203: ['英文　Unit 12', 'persevere　堅持', 'exhausted　筋疲力盡'],
+  b203x: ['我還沒讀完', '我還沒讀完', '我還沒讀完'],
+  rankTitle: '賀　本班 97 年指考　金榜題名',
+  rankX: '我考上了嗎',
+  frame: '榜首　林佳穎　台大醫學系',
+  misc: '安全門保全室櫃檯茶水間輔導室儲藏室教室教師辦公室主任辦公室影印室會議室檔案室自習室頂樓機房上樓下樓鐵捲門男廁女廁上鎖二〇二六年十月日一二三四五六',
+};
+const FONT = '"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif';
+const SERIF = '"Noto Serif TC","Songti TC","PMingLiU",serif';
+async function loadFonts() {
+  if (!document.fonts || !document.fonts.load) return;
+  const txt = JSON.stringify(TX) + RANK.flat().join('') + '0123456789FAB▲▼';
+  const jobs = [
+    document.fonts.load('700 40px "Noto Sans TC"', txt),
+    document.fonts.load('900 40px "Noto Serif TC"', txt),
+    document.fonts.load('20px "VT323"', '0123456789:/ APMCREC'),
+  ];
+  await Promise.race([Promise.allSettled(jobs), sleep(3500)]);
+}
+
+/* =========================================================
+   Procedural textures
+   ========================================================= */
+function mkTex(w, h, draw, repeat) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d');
+  draw(g, w, h);
+  const t = new THREE.CanvasTexture(c);
+  t.magFilter = THREE.NearestFilter;
+  if (repeat) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(repeat[0], repeat[1]); }
+  t.userData = { c, g, draw };
+  return t;
+}
+function redraw(t, draw) { const { c, g } = t.userData; g.clearRect(0, 0, c.width, c.height); draw(g, c.width, c.height); t.needsUpdate = true; }
+function speckle(g, w, h, n, cols, size) {
+  for (let i = 0; i < n; i++) { g.fillStyle = cols[(rnd() * cols.length) | 0]; const s = size * (0.4 + rnd()); g.fillRect(rnd() * w, rnd() * h, s, s); }
+}
+function chalk(g, text, x, y, size, color) {
+  g.font = `700 ${size}px ${FONT}`; g.fillStyle = color; g.textBaseline = 'middle';
+  g.globalAlpha = 0.85; g.fillText(text, x, y); g.globalAlpha = 0.25; g.fillText(text, x + 1, y + 1); g.globalAlpha = 1;
+}
+let T = {};
+function buildTextures() {
+  T.floor = mkTex(128, 128, (g, w, h) => {      // 磨石子 terrazzo, brass strip every tile
+    g.fillStyle = '#8c897f'; g.fillRect(0, 0, w, h);
+    speckle(g, w, h, 900, ['#6f6b62', '#a7a397', '#5a574f', '#b9b4a6', '#7b6e5c', '#4d5552'], 3);
+    g.fillStyle = '#9c8656'; g.fillRect(0, 0, w, 2); g.fillRect(0, 0, 2, h);
+  }, [17, 9]);
+  T.ceil = mkTex(64, 64, (g, w, h) => {
+    g.fillStyle = '#b9b8b0'; g.fillRect(0, 0, w, h);
+    speckle(g, w, h, 160, ['#a5a49c', '#c8c7bf'], 2);
+    g.fillStyle = '#7e7d76'; g.fillRect(0, 0, w, 2); g.fillRect(0, 0, 2, h);
+  }, [38, 17]);
+  T.wall = mkTex(32, 128, (g, w, h) => {        // 綠色牆裙 school wainscot
+    g.fillStyle = '#c4c1b3'; g.fillRect(0, 0, w, h);
+    const sk = h * (1.15 / 3);
+    g.fillStyle = '#3f6a56'; g.fillRect(0, h - sk, w, sk);
+    g.fillStyle = '#2b4a3c'; g.fillRect(0, h - sk - 2, w, 3);
+    g.fillStyle = '#353530'; g.fillRect(0, h - 4, w, 4);
+    speckle(g, w, h - sk, 50, ['rgba(80,74,60,.25)', 'rgba(255,255,255,.12)'], 2);
+    speckle(g, w, h, 40, ['rgba(20,30,25,.25)'], 2);
+  });
+  T.upper = mkTex(16, 16, (g, w, h) => { g.fillStyle = '#c4c1b3'; g.fillRect(0, 0, w, h); speckle(g, w, h, 20, ['rgba(80,74,60,.2)'], 2); });
+  T.door = mkTex(64, 128, (g, w, h) => {
+    g.fillStyle = '#6d4a2c'; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 40; i++) { g.fillStyle = `rgba(30,18,8,${0.1 + rnd() * 0.15})`; g.fillRect(rnd() * w, 0, 1, h); }
+    g.fillStyle = '#1b2224'; g.fillRect(18, 16, 28, 26);
+    g.fillStyle = '#3c4a4c'; g.fillRect(20, 18, 24, 22);
+    g.fillStyle = '#c9b46a'; g.fillRect(50, 66, 8, 4);
+    g.strokeStyle = '#3d2614'; g.lineWidth = 2; g.strokeRect(1, 1, w - 2, h - 2);
+  });
+  T.wood = mkTex(64, 64, (g, w, h) => {
+    g.fillStyle = '#86633f'; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 30; i++) { g.fillStyle = `rgba(50,30,15,${0.1 + rnd() * 0.15})`; g.fillRect(0, rnd() * h, w, 1); }
+  });
+  T.metal = mkTex(64, 64, (g, w, h) => {
+    g.fillStyle = '#5d6363'; g.fillRect(0, 0, w, h);
+    for (let y = 0; y < h; y += 6) { g.fillStyle = '#464b4b'; g.fillRect(0, y, w, 2); }
+    speckle(g, w, h, 60, ['rgba(120,70,40,.35)'], 3);
+  });
+  T.shutter = mkTex(128, 128, (g, w, h) => {
+    g.fillStyle = '#6b706e'; g.fillRect(0, 0, w, h);
+    for (let y = 0; y < h; y += 5) { g.fillStyle = '#4b504e'; g.fillRect(0, y, w, 2); g.fillStyle = '#80857f'; g.fillRect(0, y + 2, w, 1); }
+    speckle(g, w, h, 120, ['rgba(110,60,30,.4)', 'rgba(30,30,30,.3)'], 4);
+  });
+}
+function plateTex(text, { w = 256, h = 64, bg = '#e8e4d6', fg = '#1f2a28', size = 34, font = FONT, weight = 700, border = '#3a4a44' } = {}) {
+  return mkTex(w, h, (g) => {
+    g.fillStyle = bg; g.fillRect(0, 0, w, h);
+    if (border) { g.strokeStyle = border; g.lineWidth = 4; g.strokeRect(2, 2, w - 4, h - 4); }
+    g.fillStyle = fg; g.font = `${weight} ${size}px ${font}`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(text, w / 2, h / 2 + 2);
+  });
+}
+function bannerTex(text) {
+  return mkTex(512, 64, (g, w, h) => {
+    g.fillStyle = '#b3161b'; g.fillRect(0, 0, w, h);
+    g.fillStyle = 'rgba(0,0,0,.18)'; for (let x = 0; x < w; x += 9) g.fillRect(x, 0, 1, h);
+    g.fillStyle = '#f2cf63'; g.font = `900 38px ${SERIF}`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(text, w / 2, h / 2 + 2);
+  });
+}
+function boardDraw(lines, color = '#eef0e6') {
+  return (g, w, h) => {
+    g.fillStyle = '#28473a'; g.fillRect(0, 0, w, h);
+    speckle(g, w, h, 300, ['rgba(255,255,255,.05)', 'rgba(0,0,0,.08)'], 6);
+    g.fillStyle = '#6b5032'; g.fillRect(0, 0, w, 6); g.fillRect(0, h - 6, w, 6); g.fillRect(0, 0, 6, h); g.fillRect(w - 6, 0, 6, h);
+    lines.forEach((l, i) => chalk(g, l, 26, 44 + i * 52, i === 0 ? 34 : 28, color));
+  };
+}
+function rankDraw(mode) {
+  return (g, w, h) => {
+    g.fillStyle = mode === 2 ? '#3d0606' : '#a8151a'; g.fillRect(0, 0, w, h);
+    g.strokeStyle = '#e7c35a'; g.lineWidth = 6; g.strokeRect(8, 8, w - 16, h - 16);
+    g.fillStyle = '#f3d06a'; g.font = `900 30px ${SERIF}`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(TX.rankTitle, w / 2, 40);
+    g.font = `700 24px ${FONT}`;
+    RANK.forEach(([n, s], i) => {
+      const x = i < 3 ? w * 0.27 : w * 0.73, y = 92 + (i % 3) * 44;
+      g.fillStyle = '#fff4d8'; g.fillText(`${n}　${s}`, x, y);
+      if (mode >= 1 && n === '林佳穎') {
+        g.strokeStyle = '#120202'; g.lineWidth = 7;
+        g.beginPath(); g.moveTo(x - 92, y - 4); g.lineTo(x + 94, y + 3); g.stroke();
+        g.beginPath(); g.moveTo(x - 88, y + 6); g.lineTo(x + 90, y - 6); g.stroke();
+      }
+    });
+    if (mode === 2) {
+      g.fillStyle = 'rgba(190,20,20,.95)'; g.font = `900 64px ${SERIF}`;
+      g.fillText(TX.rankX, w / 2, h / 2 + 26);
+      for (let i = 0; i < 18; i++) { const x = w * 0.2 + rnd() * w * 0.6; g.fillRect(x, h / 2 + 50, 3, 10 + rnd() * 60); }
+    }
+  };
+}
+
+/* =========================================================
+   Shared geometry/material helpers
+   ========================================================= */
+const geoCache = {};
+const box = (w, h, d) => geoCache[`b${w},${h},${d}`] || (geoCache[`b${w},${h},${d}`] = new THREE.BoxGeometry(w, h, d));
+const matCache = {};
+const col = (c, e = 0) => matCache[`${c}_${e}`] || (matCache[`${c}_${e}`] = new THREE.MeshPhongMaterial({ color: c, emissive: e, shininess: 4 }));
+let M = {};
+function buildMaterials() {
+  M.wall = new THREE.MeshPhongMaterial({ map: T.wall, shininess: 2 });
+  M.upper = new THREE.MeshPhongMaterial({ map: T.upper, shininess: 2 });
+  M.floor = new THREE.MeshPhongMaterial({ map: T.floor, shininess: 20, specular: 0x222222 });
+  M.ceil = new THREE.MeshPhongMaterial({ map: T.ceil, shininess: 0 });
+  M.door = new THREE.MeshPhongMaterial({ map: T.door, shininess: 6 });
+  M.wood = new THREE.MeshPhongMaterial({ map: T.wood, shininess: 8 });
+  M.metal = new THREE.MeshPhongMaterial({ map: T.metal, shininess: 20 });
+  M.shutter = new THREE.MeshPhongMaterial({ map: T.shutter, shininess: 10 });
+  M.dark = col(0x141414);
+  M.steel = col(0x55595a);
+  M.desk = col(0x9a8a6c);
+  M.deskLeg = col(0x3b3d3e);
+  M.chair = col(0x30473f);
+  M.paper = col(0xe6e1d2);
+  M.lightOn = new THREE.MeshBasicMaterial({ color: 0xf1f6ee });
+  M.lightOff = new THREE.MeshBasicMaterial({ color: 0x2b2d2c });
+}
+const planeGeo = {};
+function plane(f, tex, w, h, x, y, z, ry = 0, basic = false) {
+  const k = `${w},${h}`;
+  const geo = planeGeo[k] || (planeGeo[k] = new THREE.PlaneGeometry(w, h));
+  const mat = basic ? new THREE.MeshBasicMaterial({ map: tex }) : new THREE.MeshPhongMaterial({ map: tex, shininess: 3 });
+  const m = new THREE.Mesh(geo, mat);
+  m.position.set(x, y, z); m.rotation.y = ry;
+  f.g.add(m);
+  return m;
+}
+
+/* =========================================================
+   People (procedural low-poly)
+   ========================================================= */
+function person(o) {
+  const { shirt = 0xd9d5c8, skirt = 0, pants = 0x24282f, hair = 0x080707, skin = 0xc6b5a2, seated = false, longHair = false, faceHidden = false, glow = 0 } = o;
+  const g = new THREE.Group();
+  const m = c => col(c, glow);
+  const hip = seated ? 0.5 : 0.86;
+  const legCol = skirt ? skin : pants;
+  for (const s of [-1, 1]) {
+    const leg = new THREE.Group(); leg.position.set(s * 0.09, hip, 0);
+    if (seated) {
+      const th = new THREE.Mesh(box(0.12, 0.45, 0.13), m(legCol)); th.rotation.x = Math.PI / 2; th.position.set(0, 0, 0.22); leg.add(th);
+      const sh = new THREE.Mesh(box(0.11, 0.47, 0.12), m(skirt ? 0x151515 : pants)); sh.position.set(0, -0.24, 0.44); leg.add(sh);
+    } else {
+      const th = new THREE.Mesh(box(0.12, 0.5, 0.13), m(legCol)); th.position.y = -0.25; leg.add(th);
+      const sh = new THREE.Mesh(box(0.11, 0.38, 0.12), m(skirt ? 0x151515 : pants)); sh.position.y = -0.66; leg.add(sh);
+    }
+    g.add(leg);
+  }
+  if (skirt) {
+    if (seated) { const sk = new THREE.Mesh(box(0.42, 0.12, 0.46), m(skirt)); sk.position.set(0, hip + 0.03, 0.18); g.add(sk); }
+    else { const sk = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.27, 0.44, 10), m(skirt)); sk.position.y = hip - 0.12; g.add(sk); }
+  }
+  const torso = new THREE.Mesh(box(0.36, 0.52, 0.21), m(shirt)); torso.position.y = hip + 0.3; g.add(torso);
+  for (const s of [-1, 1]) {
+    const arm = new THREE.Group(); arm.position.set(s * 0.235, hip + 0.54, 0);
+    const a = new THREE.Mesh(box(0.09, 0.54, 0.1), m(shirt)); a.position.y = -0.27; arm.add(a);
+    const hnd = new THREE.Mesh(box(0.08, 0.1, 0.09), m(skin)); hnd.position.y = -0.58; arm.add(hnd);
+    if (seated) arm.rotation.x = -0.95;
+    g.add(arm);
+  }
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.125, 8, 6), m(skin)); head.position.y = hip + 0.71; g.add(head);
+  const hb = new THREE.Mesh(box(0.28, longHair ? 0.62 : 0.2, 0.13), m(hair));
+  hb.position.set(0, hip + 0.73 - (longHair ? 0.2 : 0), -0.08); g.add(hb);
+  const ht = new THREE.Mesh(box(0.28, 0.08, 0.28), m(hair)); ht.position.y = hip + 0.83; g.add(ht);
+  if (faceHidden) { const hf = new THREE.Mesh(box(0.26, 0.5, 0.05), m(hair)); hf.position.set(0, hip + 0.6, 0.12); g.add(hf); }
+  else if (!longHair) { const gl = new THREE.Mesh(box(0.2, 0.03, 0.02), m(0x111111)); gl.position.set(0, hip + 0.73, 0.125); g.add(gl); }
+  return g;
+}
+const girlLook = { shirt: 0xdcd8cc, skirt: 0x1c2346, skin: 0xb8b3ab, longHair: true };
+
+/* =========================================================
+   World: four floors of the same shell
+   x: 0..32 corridor (z -1.5..1.5), rooms N (z 1.5..8.5) / S (z -8.5..-1.5),
+   stairwell at x -6..0.  Door centres at x = 4, 12, 20, 28.
+   ========================================================= */
+let floors = [], F = null;
+function newFloor(n) {
+  const f = { n, g: new THREE.Group(), col: [], rooms: {}, cor: [], corLevel: 1 };
+  f.g.visible = false; scene.add(f.g); floors[n] = f; return f;
+}
+function addBox(f, w, h, d, x, y, z, mat, collide) {
+  const m = new THREE.Mesh(box(w, h, d), mat); m.position.set(x, y, z); f.g.add(m);
+  if (collide) f.col.push({ x1: x - w / 2, x2: x + w / 2, z1: z - d / 2, z2: z + d / 2 });
+  return m;
+}
+const TH = 0.2;
+function wallX(f, x1, x2, z, gaps = [], h = 3) {
+  let s = x1;
+  const pts = [...gaps].sort((a, b) => a - b);
+  for (const c of pts) {
+    if (c - 0.7 > s) addBox(f, c - 0.7 - s, h, TH, (s + c - 0.7) / 2, h / 2, z, M.wall, true);
+    addBox(f, 1.4, 0.8, TH, c, 2.6, z, M.upper, false);
+    s = c + 0.7;
+  }
+  if (x2 > s) addBox(f, x2 - s, h, TH, (s + x2) / 2, h / 2, z, M.wall, true);
+}
+function wallZ(f, x, z1, z2, h = 3, y0 = 0) { addBox(f, TH, h, z2 - z1, x, y0 + h / 2, (z1 + z2) / 2, M.wall, true); }
+
+function shell(f) {
+  const n = f.n;
+  const fl = new THREE.Mesh(new THREE.PlaneGeometry(34, 17, 17, 9), M.floor); fl.rotation.x = -Math.PI / 2; fl.position.set(15, 0, 0); f.g.add(fl);
+  const land = new THREE.Mesh(new THREE.PlaneGeometry(4, 3), M.floor); land.rotation.x = -Math.PI / 2; land.position.set(-4, 0, 1.5); f.g.add(land);
+  const ce = new THREE.Mesh(new THREE.PlaneGeometry(32, 17, 16, 9), M.ceil); ce.rotation.x = Math.PI / 2; ce.position.set(16, 3, 0); f.g.add(ce);
+  const sc = new THREE.Mesh(new THREE.PlaneGeometry(6, 6), M.ceil); sc.rotation.x = Math.PI / 2; sc.position.set(-3, 6, 0); f.g.add(sc);
+  const pit = new THREE.Mesh(new THREE.PlaneGeometry(4, 3), M.dark); pit.rotation.x = -Math.PI / 2; pit.position.set(-4, -3.4, -1.5); f.g.add(pit);
+  const gaps = [4, 12, 20, 28];
+  wallX(f, 0, 32, 1.5, gaps); wallX(f, 0, 32, -1.5, gaps);
+  wallX(f, 0, 32, 8.5); wallX(f, 0, 32, -8.5);
+  for (const x of [8, 16, 24]) { wallZ(f, x, 1.5, 8.5); wallZ(f, x, -8.5, -1.5); }
+  wallZ(f, 32, -8.5, 8.5); wallZ(f, 0, 1.5, 8.5); wallZ(f, 0, -8.5, -1.5);
+  // stairwell shaft
+  wallZ(f, -6, -3, 3, 9.5, -3.5);
+  addBox(f, 6, 9.5, TH, -3, 1.25, 3, M.wall, true);
+  addBox(f, 6, 9.5, TH, -3, 1.25, -3, M.wall, true);
+  addBox(f, TH, 3, 6, 0, 4.5, 0, M.upper, false);
+  addBox(f, 4, 9.5, 0.12, -4, 1.25, 0, M.upper, false);
+  // flights
+  const up = new THREE.Group(), down = new THREE.Group();
+  for (let i = 0; i < 10; i++) {
+    const h = (i + 1) * 0.3;
+    const s = new THREE.Mesh(box(0.4, h, 2.8), M.floor); s.position.set(-2.2 - 0.4 * i, h / 2, 1.5); up.add(s);
+    const top = -(i + 1) * 0.3, dh = 3.5 + top;
+    const d = new THREE.Mesh(box(0.4, dh, 2.8), M.floor); d.position.set(-2.2 - 0.4 * i, (-3.5 + top) / 2, -1.5); down.add(d);
+  }
+  f.g.add(up, down);
+  // railing (blocks walking onto the flights)
+  const railN = new THREE.Group(), railS = new THREE.Group();
+  for (const [grp, z0] of [[railN, 1.5], [railS, -1.5]]) {
+    const bar = new THREE.Mesh(box(0.06, 0.06, 2.9), M.steel); bar.position.set(-2, 1, z0); grp.add(bar);
+    for (const dz of [-1.3, -0.45, 0.45, 1.3]) { const p = new THREE.Mesh(box(0.04, 1, 0.04), M.steel); p.position.set(-2, 0.5, z0 + dz); grp.add(p); }
+    f.g.add(grp);
+  }
+  f.col.push({ x1: -6.2, x2: -1.9, z1: -3, z2: 3 });
+  const upLabel = n === 4 ? '▲ 頂樓' : `▲ 上樓 ${n + 1}F`;
+  const dnLabel = n === 1 ? '▼ B1 停車場' : `▼ 下樓 ${n - 1}F`;
+  const su = plane(f, plateTex(upLabel, { bg: '#1c2a26', fg: '#e8e4d6', border: '#3fd68c' }), 1.3, 0.33, -1.93, 1.75, 1.5, Math.PI / 2);
+  const sd = plane(f, plateTex(dnLabel, { bg: '#1c2a26', fg: '#e8e4d6', border: '#3fd68c' }), 1.3, 0.33, -1.93, 1.75, -1.5, Math.PI / 2);
+  plane(f, plateTex(`${n}F`, { w: 128, h: 128, size: 92, bg: '#d9d5c6', fg: '#14201c', border: null, font: '"VT323",monospace', weight: 400 }), 0.9, 0.9, -5.88, 2.3, 0, Math.PI / 2);
+  const ex = plane(f, plateTex('◀ 安全門', { bg: '#15a35c', fg: '#effff4', border: '#0c5e35', size: 36 }), 0.9, 0.24, 0.12, 2.72, 0, Math.PI / 2, true);
+  ex.material.fog = false;
+  const iUp = { label: () => upLabel.slice(2), act: () => stairs(+1) };
+  const iDn = { label: () => dnLabel.slice(2), act: () => stairs(-1) };
+  for (const o of [up, railN, su]) o.userData.int = iUp;
+  for (const o of [down, railS, sd]) o.userData.int = iDn;
+  // corridor fluorescent panels + two lights
+  for (const x of [4, 12, 20, 28]) {
+    const p = new THREE.Mesh(box(0.35, 0.04, 1.2), M.lightOn); p.position.set(x, 2.97, 0); f.g.add(p); f.cor.push(p);
+  }
+  f.corLights = [8, 24].map(x => { const l = new THREE.PointLight(0xdfeee8, 0.9, 15, 1.4); l.position.set(x, 2.6, 0); f.g.add(l); return l; });
+}
+function setCorridor(f, level) {
+  f.corLevel = level;
+  f.corLights.forEach(l => l.intensity = 0.9 * level);
+  f.cor.forEach(p => p.material = level > 0.3 ? M.lightOn : M.lightOff);
+}
+
+function roomGeom(key) {
+  const side = key[0] === 'N' ? 1 : -1, slot = +key[1];
+  return { side, x0: slot * 8, x1: slot * 8 + 8, cx: slot * 8 + 4, cz: side * 5, dz: side * 1.5 };
+}
+function room(f, key, def) {
+  const r = roomGeom(key); Object.assign(r, def); f.rooms[key] = r;
+  // plate over the door, corridor side
+  plane(f, plateTex(def.label, { size: def.label.length > 4 ? 26 : 32 }), 0.95, 0.24, r.cx, 2.42, r.side * 1.39, r.side > 0 ? Math.PI : 0);
+  if (def.door || def.locked) {
+    const piv = new THREE.Group(); piv.position.set(r.cx - 0.7, 0, r.dz);
+    const d = new THREE.Mesh(box(1.4, 2.2, 0.06), M.door); d.position.set(0.7, 1.1, 0); piv.add(d);
+    f.g.add(piv);
+    const c = { x1: r.cx - 0.7, x2: r.cx + 0.7, z1: r.dz - 0.08, z2: r.dz + 0.08 };
+    f.col.push(c);
+    r.door = { piv, mesh: d, col: c, open: false };
+    if (def.locked) d.userData.int = { label: '（上鎖）', act: () => toast(def.lockMsg || '門鎖著。這間今晚不用巡。') };
+  }
+  if (def.lit !== undefined) roomLight(f, r, def.lit);
+  return r;
+}
+function openDoor(r, instant) {
+  if (!r.door || r.door.open) return;
+  r.door.open = true; r.door.col.off = true;
+  r.door.mesh.userData.int = null;
+  const target = r.side > 0 ? -1.45 : 1.45;
+  if (instant) { r.door.piv.rotation.y = target; return; }
+  tweens.push({ t: 0, d: 1.6, f: k => r.door.piv.rotation.y = target * (1 - Math.pow(1 - k, 3)) });
+}
+function closeDoor(r) {
+  if (!r.door) return;
+  r.door.open = false; r.door.col.off = false; r.door.piv.rotation.y = 0;
+}
+function roomLight(f, r, on) {
+  const l = new THREE.PointLight(0xe6f2ea, 0, 11, 1.3); l.position.set(r.cx, 2.6, r.cz); f.g.add(l);
+  const panels = [];
+  for (const dx of [-2, 2]) for (const dz of [-1.6, 1.6]) {
+    const p = new THREE.Mesh(box(0.35, 0.04, 1.2), M.lightOff); p.position.set(r.cx + dx, 2.97, r.cz + dz); f.g.add(p); panels.push(p);
+  }
+  r.light = { l, panels, on: false, set(v) { this.on = v; l.intensity = v ? 0.95 : 0; panels.forEach(p => p.material = v ? M.lightOn : M.lightOff); } };
+  r.light.set(on);
+}
+function lightSwitch(f, r, onOff) {
+  const x = r.cx + 1.05, z = r.side * 1.39;
+  const plate = addBox(f, 0.12, 0.18, 0.03, x, 1.35, z, M.paper, false);
+  plate.userData.int = { label: () => r.light.on ? '關燈' : '（燈已關）', on: () => r.light.on, act: () => onOff(r) };
+}
+
+/* furniture */
+function desk(f, x, z, rot = 0, w = 0.9) {
+  const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = rot;
+  const top = new THREE.Mesh(box(w, 0.04, 0.5), M.desk); top.position.y = 0.74; g.add(top);
+  for (const s of [-1, 1]) { const leg = new THREE.Mesh(box(0.04, 0.72, 0.45), M.deskLeg); leg.position.set(s * (w / 2 - 0.04), 0.36, 0); g.add(leg); }
+  f.g.add(g); return g;
+}
+function chair(f, x, z, rot = 0) {
+  const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = rot;
+  const seat = new THREE.Mesh(box(0.42, 0.04, 0.4), M.chair); seat.position.y = 0.45; g.add(seat);
+  const back = new THREE.Mesh(box(0.42, 0.36, 0.04), M.chair); back.position.set(0, 0.68, -0.2); g.add(back);
+  for (const s of [-1, 1]) { const leg = new THREE.Mesh(box(0.03, 0.45, 0.36), M.deskLeg); leg.position.set(s * 0.19, 0.225, 0); g.add(leg); }
+  f.g.add(g); return g;
+}
+function classroom(f, r, boardLines) {
+  for (let row = 0; row < 4; row++) for (let c = 0; c < 3; c++) {
+    const x = r.cx - 2 + c * 2, z = r.side * (3.1 + row * 1.15);
+    desk(f, x, z, r.side > 0 ? 0 : Math.PI);
+    chair(f, x, z - r.side * 0.45, r.side > 0 ? Math.PI : 0);
+  }
+  const t = mkTex(512, 192, boardDraw(boardLines));
+  const b = plane(f, t, 3.8, 1.3, r.cx, 1.65, r.side * 8.38, r.side > 0 ? Math.PI : 0);
+  addBox(f, 1.6, 0.8, 0.6, r.cx, 0.4, r.side * 7.6, M.wood, true);
+  return { tex: t, mesh: b };
+}
+
+/* =========================================================
+   Game state
+   ========================================================= */
+let S, P, Ghost, Chaser, SeatedGirl, Teacher, tweens = [];
+const UI = { mode: 'title' };
+function freshState() {
+  return {
+    note: false, keys: false, light: false, phoneRing: false, phone: false,
+    lightsOff: 0, glimpse: 0, teacher: false, loop: false, loops: 0, dirOpen: false, paper: false, ticket: false,
+    seen4: false, locked4: false, chase: false, unlocked: false, given: false, cctv4: 0,
+    clock: 'PM 11:42',
+  };
+}
+function setClock(t) { S.clock = t; }
+
+/* ---------- build all floors */
+function buildWorld() {
+  floors.forEach(f => f && scene.remove(f.g));
+  floors = []; seed = 8787;
+  const f1 = newFloor(1), f2 = newFloor(2), f3 = newFloor(3), f4 = newFloor(4);
+  [f1, f2, f3, f4].forEach(shell);
+
+  /* 1F */
+  const g = room(f1, 'S0', { label: '保全室', lit: true });
+  room(f1, 'N0', { label: '櫃檯', locked: true }); room(f1, 'N1', { label: '101 教室', locked: true });
+  room(f1, 'N2', { label: '102 教室', locked: true }); room(f1, 'N3', { label: '103 教室', locked: true });
+  room(f1, 'S1', { label: '茶水間', locked: true }); room(f1, 'S2', { label: '輔導室', locked: true }); room(f1, 'S3', { label: '儲藏室', locked: true });
+  plane(f1, bannerTex(TX.f1Banner), 5, 0.62, 16, 2.1, 1.38, Math.PI);
+  const sh = plane(f1, T.shutter, 3, 2.9, 31.88, 1.45, 0, -Math.PI / 2);
+  sh.material = M.shutter;
+  sh.userData.int = { label: '大門', act: () => toast('鐵捲門已經拉下來了。要值班到早上六點。') };
+  // guard room
+  const dk = addBox(f1, 2.6, 0.06, 0.8, 4, 0.76, -7.7, M.wood, false);
+  addBox(f1, 2.5, 0.72, 0.7, 4, 0.36, -7.7, M.metal, true);
+  addBox(f1, 0.6, 0.42, 0.32, 3.1, 1.0, -7.85, M.dark, false);
+  const scr = new THREE.Mesh(new THREE.PlaneGeometry(0.52, 0.34), new THREE.MeshBasicMaterial({ color: 0x5f8f78 }));
+  scr.position.set(3.1, 1.0, -7.68); f1.g.add(scr);
+  scr.userData.int = { label: '查看監視器', act: () => openCCTV() };
+  const ph = addBox(f1, 0.24, 0.08, 0.2, 4.6, 0.83, -7.6, col(0x8a2a22), false);
+  ph.userData.int = { label: () => S.phoneRing ? '接電話' : '電話', act: () => S.phoneRing ? answerPhone() : toast('話筒裡只有嘟——的聲音。') };
+  const nt = addBox(f1, 0.24, 0.01, 0.32, 4.0, 0.8, -7.45, M.paper, false);
+  nt.userData.int = { label: '閱讀交接單', act: () => readNote() };
+  const ky = addBox(f1, 0.14, 0.05, 0.08, 5.2, 0.81, -7.5, col(0xc9a64a), false);
+  ky.userData.int = { label: '拿起鑰匙串', act: () => { S.keys = true; ky.visible = false; sfx.keys(); toast('拿到鑰匙串。上面貼著「4F 自習室」的標籤。'); afterPickup(); } };
+  const fl = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.045, 0.26, 8), col(0x1d1f22)); fl.rotation.z = Math.PI / 2; fl.position.set(2.3, 0.82, -7.5); f1.g.add(fl);
+  fl.userData.int = { label: '拿起手電筒', act: () => { S.light = true; fl.visible = false; setFlash(true); sfx.click(); toast('拿到手電筒。按 F 開關。'); afterPickup(); } };
+  chair(f1, 4, -6.8, 0);
+  addBox(f1, 0.6, 2, 0.5, 7.4, 1, -3.4, M.metal, true);
+  plane(f1, plateTex('十月', { w: 128, h: 160, size: 44, bg: '#f0ece2', fg: '#b3161b', border: '#888' }), 0.4, 0.5, 1.5, 1.8, -8.38, 0);
+
+  /* 2F */
+  const r201 = room(f2, 'N0', { label: '201 教室', lit: true }), r202 = room(f2, 'N1', { label: '202 教室', lit: true }), r203 = room(f2, 'S1', { label: '203 教室', lit: true });
+  room(f2, 'N2', { label: '204 教室', locked: true }); room(f2, 'N3', { label: '205 教室', locked: true });
+  room(f2, 'S0', { label: '女廁', locked: true, lockMsg: '女廁。門從裡面卡住了。' }); room(f2, 'S2', { label: '206 教室', locked: true }); room(f2, 'S3', { label: '207 教室', locked: true });
+  classroom(f2, r201, TX.b201); classroom(f2, r202, TX.b202);
+  const b203 = classroom(f2, r203, TX.b203); r203.board = b203;
+  for (const r of [r201, r202, r203]) lightSwitch(f2, r, offLight);
+  plane(f2, bannerTex(TX.f2Banner), 5, 0.62, 16, 2.1, 1.38, Math.PI);
+  Ghost = person({ ...girlLook, faceHidden: true, glow: 0x0b0b0d });
+  Ghost.visible = false; f2.g.add(Ghost);
+
+  /* 3F */
+  const off = room(f3, 'N1', { label: '教師辦公室', lit: true });
+  const dir = room(f3, 'S2', { label: '主任辦公室', locked: true, lockMsg: '主任辦公室。門鎖著，鑰匙串上沒有這把。' });
+  room(f3, 'N0', { label: '301 教室', locked: true }); room(f3, 'N2', { label: '302 教室', locked: true }); room(f3, 'N3', { label: '303 教室', locked: true });
+  room(f3, 'S0', { label: '影印室', locked: true }); room(f3, 'S1', { label: '會議室', locked: true }); room(f3, 'S3', { label: '檔案室', locked: true });
+  plane(f3, bannerTex(TX.f3Banner), 3.6, 0.5, 24, 2.1, 1.38, Math.PI);
+  const rankT = mkTex(512, 256, rankDraw(0));
+  const rk = plane(f3, rankT, 2.8, 1.4, 8, 1.7, 1.38, Math.PI);
+  rk.userData.int = { label: '看榜單', act: () => toast(S.loops >= 2 ? '……「林佳穎」被人用黑筆劃掉了。' : '九十七年的榜單，紅紙已經褪色了。') };
+  f3.rank = rankT;
+  for (const [x, z] of [[10.2, 3.6], [13.8, 3.6], [10.2, 6.8], [13.8, 6.8]]) { desk(f3, x, z, 0, 1.4); addBox(f3, 1.4, 0.74, 0.5, x, 0.37, z, M.wood, true); }
+  for (let i = 0; i < 5; i++) addBox(f3, 0.3, 0.03 + i * 0.012, 0.22, 13.6 + rnd() * 0.3, 0.77 + i * 0.012, 3.55, M.paper, false);
+  addBox(f3, 3.2, 1.9, 0.45, 12, 0.95, 8.2, M.metal, true);
+  Teacher = person({ shirt: 0x7a8a99, pants: 0x2a2a2a, hair: 0x2b2a28, skin: 0xc2a58b, seated: true });
+  Teacher.position.set(13.8, 0, 4.25); Teacher.rotation.y = Math.PI; f3.g.add(Teacher);
+  Teacher.traverse(o => o.userData.int = { label: '跟陳老師說話', on: () => !S.teacher, act: talkTeacher });
+  f3.office = off;
+  // director's office
+  desk(f3, 20, -6.2, Math.PI, 1.8); addBox(f3, 1.8, 0.74, 0.5, 20, 0.37, -6.2, M.wood, true);
+  chair(f3, 20, -6.85, 0);
+  const np = addBox(f3, 0.42, 0.01, 0.3, 19.5, 0.77, -6.15, col(0xd8d2bf), false);
+  np.userData.int = { label: '看報紙', act: readPaper };
+  const tk = addBox(f3, 0.16, 0.012, 0.11, 20.6, 0.77, -6.05, col(0xe9dfb5), false);
+  tk.userData.int = { label: '拿起准考證', act: () => takeTicket(tk) };
+  const fr = plane(f3, plateTex(TX.frame, { w: 512, h: 96, size: 40, bg: '#a8151a', fg: '#f3d06a', border: '#e7c35a', font: SERIF, weight: 900 }), 2.6, 0.5, 20, 1.9, -8.38, 0);
+  fr.userData.int = { label: '看裱框', act: () => toast('裱框的榜單：「榜首　林佳穎　台大醫學系」。落款日期是她過世後兩個月。') };
+  const lamp = new THREE.PointLight(0xffc98a, 0, 6, 1.5); lamp.position.set(20.8, 1.3, -6.2); f3.g.add(lamp); dir.lamp = lamp;
+  f3.dir = dir;
+
+  /* 4F */
+  const st = room(f4, 'N1', { label: '自習室', door: true });
+  room(f4, 'N0', { label: '401 教室', locked: true }); room(f4, 'N2', { label: '自習室 B', locked: true }); room(f4, 'N3', { label: '403 教室', locked: true });
+  room(f4, 'S0', { label: '402 教室', locked: true }); room(f4, 'S1', { label: '茶水間', locked: true }); room(f4, 'S2', { label: '輔導室', locked: true }); room(f4, 'S3', { label: '頂樓機房', locked: true });
+  plane(f4, bannerTex(TX.f4Banner), 5, 0.62, 21, 2.1, 1.38, Math.PI);
+  st.door.mesh.userData.int = { label: () => doorLabel(), hold: () => S.chase ? 2.2 : 1.2, on: () => !S.unlocked, act: doorAct };
+  for (const z of [5, 7.3]) for (const x of [9.5, 12, 14.5]) {
+    desk(f4, x, z, 0, 1.1);
+    addBox(f4, 0.04, 0.5, 0.55, x - 0.55, 1.0, z, M.wood, false); addBox(f4, 0.04, 0.5, 0.55, x + 0.55, 1.0, z, M.wood, false);
+    addBox(f4, 1.1, 0.5, 0.04, x, 1.0, z + 0.26, M.wood, false);
+    addBox(f4, 1.1, 0.74, 0.5, x, 0.37, z, M.wood, true);
+    if (!(x === 14.5 && z === 5)) chair(f4, x, z - 0.55, Math.PI);
+  }
+  addBox(f4, 0.22, 0.02, 0.3, 14.4, 0.77, 4.9, M.paper, false);
+  SeatedGirl = person({ ...girlLook, seated: true });
+  SeatedGirl.position.set(14.5, 0, 4.25); f4.g.add(SeatedGirl);
+  SeatedGirl.traverse(o => o.userData.int = { label: '把准考證還給她', on: () => S.unlocked && !S.given, act: giveTicket });
+  const sl = new THREE.PointLight(0xffd59a, 0.85, 6, 1.4); sl.position.set(14.5, 1.35, 5.1); f4.g.add(sl);
+  st.lamp = sl;
+  roomLight(f4, st, false);
+  Chaser = person({ ...girlLook, faceHidden: true, glow: 0x0d0c0e });
+  Chaser.visible = false; f4.g.add(Chaser);
+  f4.study = st;
+  setCorridor(f4, 0.45);
+}
+
+/* =========================================================
+   Story beats
+   ========================================================= */
+function afterPickup() {
+  if (S.keys && S.light && S.note && !S.phoneRing && !S.phone) {
+    setTimeout(() => { S.phoneRing = true; sfx.ringStart(); toast('桌上的電話響了。'); }, 1600);
+  }
+}
+async function readNote() {
+  sfx.page();
+  await showPaper(`
+    <h3>夜間保全　交接單</h3>
+    <div class="meta">明德大樓・管理委員會　　十月六日</div>
+    <ol>
+      <li>2F 三間教室（201、202、203）的燈，十二點前全部關掉。</li>
+      <li>3F 的陳老師常常留下來加班，請他回家。</li>
+      <li><b>4F 自習室的門一定要鎖好。不管裡面有什麼聲音，都不要開門。</b></li>
+      <li>鑰匙在桌上，手電筒在桌上。監視器可以看各樓層。</li>
+    </ol>
+    <p>前一位保全（老吳）沒有交接就走了，有事直接打給我。電梯在修，請走樓梯。</p>
+    <div class="sign">—— 黃主任</div>`);
+  if (!S.note) { S.note = true; afterPickup(); }
+}
+async function answerPhone() {
+  S.phoneRing = false; sfx.ringStop(); sfx.click();
+  await say([
+    ['小晴', '爸，你到了嗎？'],
+    ['你', '到了。舊的補習班大樓，晚上就我一個。'],
+    ['小晴', '我還在補習班自習。主任說今天要讀到十二點才能走。'],
+    ['小晴', '欸，我同學說你那棟以前也是補習班。四樓自習室有個學姐，一直都沒有回家。'],
+    ['你', '別聽那些。讀完早點回家，明天早上爸買鹹酥雞。'],
+    ['小晴', '早餐吃鹹酥雞喔？……好啦。爸，不要太晚。'],
+  ]);
+  sfx.click();
+  S.phone = true; setClock('PM 11:47');
+  toast('往走廊左邊走，到樓梯間上 2F。');
+}
+function offLight(r) {
+  r.light.set(false); sfx.click(); S.lightsOff++;
+  if (S.lightsOff === 1) setTimeout(() => sfx.chair(), 1200);
+  if (S.lightsOff === 3) {
+    setClock('PM 11:58');
+    setTimeout(() => {
+      redraw(floors[2].rooms.S1.board.tex, boardDraw(TX.b203x, '#f4e3dc'));
+      sfx.whisper(1.6);
+      say([['', '（身後的黑板好像有粉筆的聲音。）']], false);
+    }, 900);
+  }
+}
+async function talkTeacher() {
+  S.teacher = true;
+  await say([
+    ['陳老師', '喔，新來的保全？我改完這疊考卷就走。'],
+    ['陳老師', '你知道這棟以前是什麼嗎？明德補習班。全盛時期一年三百個重考生。'],
+    ['陳老師', '黃主任那時候規定，晚上十一點以後，四樓自習室要從外面鎖起來。說這樣才不會有人偷跑。'],
+    ['陳老師', '後來出了事，就沒人再提了。'],
+    ['陳老師', '……好了，我走了。對了——'],
+    ['陳老師', '如果聽到有人問你現在幾點，不要回答她。'],
+  ]);
+  await fadeTo(1, 160); Teacher.visible = false; F.rooms.N1.light.set(false); sfx.slam(); await sleep(260); await fadeTo(0, 300);
+  setClock('AM 12:31');
+  S.loop = true;
+  toast('回樓梯間。');
+  say([['你', '……陳老師？'], ['你', '（辦公室裡只剩一張還在轉的椅子。）']], false);
+}
+function loopTick() {
+  S.loops++;
+  if (S.loops === 1) say([['你', '……這條走廊剛剛有這麼長嗎？']], false);
+  if (S.loops === 2) {
+    redraw(floors[3].rank, rankDraw(1)); setCorridor(F, 0.6);
+    openDoor(F.dir); F.dir.lamp.intensity = 1.1; S.dirOpen = true; sfx.creak();
+    setTimeout(() => say([['？？？', '現在幾點了？', true]], false), 1500);
+    toast('主任辦公室的門開了。');
+  }
+  if (S.loops === 4) { redraw(floors[3].rank, rankDraw(2)); sfx.stinger(0.5); }
+}
+async function readPaper() {
+  sfx.page(); S.paper = true;
+  await showPaper(`<div class="news">
+    <div class="meta">民國九十七年八月九日　星期六　社會新聞</div>
+    <h3>重考女學生 倒臥補習班自習室</h3>
+    <p>【本報訊】台北市中正區一棟補習班大樓昨日清晨傳出憾事。一名十九歲林姓重考生被發現倒臥在四樓自習室，送醫後不治。</p>
+    <p>據了解，該補習班要求重考班學生每晚留校自習，晚間十一點後由保全將自習室<b>從外面上鎖</b>，隔天清晨才開門。同班學生表示，林女當晚身體不適，曾多次敲門，但沒有人回應。</p>
+    <p>補習班黃姓負責人受訪時表示「一切依規定辦理」，並強調該班今年「金榜題名率超過九成」。</p>
+  </div>`);
+}
+async function takeTicket(tk) {
+  tk.visible = false; tk.userData.int = null; sfx.page();
+  await showPaper(`
+    <div class="meta">九十七學年度　大學指定科目考試</div>
+    <h3>准考證</h3>
+    <dl><dt>姓名</dt><dd>林佳穎</dd><dt>准考證號碼</dt><dd>1068 0427</dd><dt>考區</dt><dd>台北考區</dd><dt>類組</dt><dd>第三類組</dd></dl>
+    <p>背面有原子筆寫的字：<span class="pen">考上了，就可以回家了。</span></p>`, 'ticket');
+  S.ticket = true; S.loop = false; setCorridor(F, 0.85); setClock('AM 01:52');
+  sfx.whisper(1.2);
+  say([['？？？', '那是我的。', true]], false);
+}
+function doorLabel() {
+  if (S.chase) return '打開門鎖';
+  if (!S.locked4) return '鎖上自習室的門';
+  return '';
+}
+async function doorAct() {
+  if (!S.locked4) {
+    S.locked4 = true; sfx.lock(); setClock('AM 02:13'); murmur.target = 0;
+    UI.mode = 'cut';
+    await sleep(1400);
+    await say([['？？？', '叔叔……不要鎖門。', true], ['？？？', '我還沒有考完。……我只是想回家。', true]], true);
+    UI.mode = 'cut';
+    sfx.stinger(1); setCorridor(F, 0); hemi.intensity = 0.05;
+    await sleep(700);
+    startChase();
+    UI.mode = null;
+    say([['你', '……燈怎麼全暗了。']], false);
+    return;
+  }
+  if (S.chase) unlockStudy();
+}
+function startChase() {
+  S.chase = true;
+  Chaser.position.set(31, 0, 0); Chaser.visible = true;
+  toast('走廊的另一頭有人。');
+}
+function unlockStudy() {
+  S.chase = false; S.unlocked = true; Chaser.visible = false;
+  sfx.lock(); setTimeout(() => sfx.creak(), 300);
+  openDoor(F.study); F.study.lamp.intensity = 0.9; hemi.intensity = 0.1;
+  setTimeout(() => say([['？？？', '……謝謝。', true]], false), 1200);
+}
+async function giveTicket() {
+  S.given = true;
+  await say([
+    ['林佳穎', '這是……我的准考證。'],
+    ['林佳穎', '那年我沒有考上。榜單上的名字，是主任幫我寫上去的。'],
+    ['林佳穎', '他說，考不上就不要回家。'],
+    ['你', '門開著。妳可以回家了。'],
+    ['林佳穎', '叔叔，現在幾點了？'],
+  ]);
+  const c = await choose(['回答她：「快天亮了。」', '想起陳老師的話，不回答']);
+  ending(c === 0 ? 'B' : 'C');
+}
+async function stairs(dir) {
+  const n = F.n;
+  if (dir > 0) {
+    if (n === 1 && !S.phone) return toast(S.note ? '先把桌上的東西帶著。' : '先看一下保全室桌上的交接單。');
+    if (n === 2 && S.lightsOff < 3) return toast(`2F 還有 ${3 - S.lightsOff} 間教室的燈沒關。`);
+    if (n === 3 && !S.ticket) return toast(S.teacher ? '……' : '先去教師辦公室，請陳老師回家。');
+    if (n === 4) return toast('通往頂樓的鐵門被鏈條鎖住了。');
+  } else {
+    if (n === 1) return toast('B1 停車場的門今晚不開。');
+    if (S.chase) return routeA();
+    if (n === 4 && S.locked4) return toast('……');
+  }
+  UI.mode = 'cut';
+  await fadeTo(1, 500);
+  sfx.stairs();
+  await sleep(900);
+  goFloor(n + dir);
+  await fadeTo(0, 500);
+  UI.mode = null;
+}
+function goFloor(n) {
+  if (F) F.g.visible = false;
+  F = floors[n]; F.g.visible = true;
+  P.x = -1.2; P.z = 0; P.yaw = -Math.PI / 2; P.pitch = 0;
+  if (n === 4 && !S.seen4) { S.seen4 = true; murmur.target = 1; setTimeout(() => say([['你', '……有人在念英文單字？']], false), 900); }
+  if (n === 3 && !S.teacher) toast('教師辦公室的燈還亮著。');
+  if (n === 2 && S.lightsOff === 0) toast('三間教室的開關在門邊。');
+}
+async function routeA() {
+  UI.mode = 'cut'; S.chase = false;
+  await fadeTo(1, 300);
+  const big = $('#big');
+  big.hidden = false;
+  for (const t of ['3F', '2F', '1F', '4F', '4F', '4F']) {
+    big.textContent = t; big.classList.toggle('red', t === '4F');
+    sfx.stairs(); await sleep(t === '4F' ? 650 : 850);
+  }
+  sfx.scream(); flashRed(); await sleep(1300);
+  big.hidden = true;
+  ending('A');
+}
+
+/* =========================================================
+   CCTV
+   ========================================================= */
+const CAMS = [
+  { n: 2, p: [31.4, 2.7, 1.2], t: [0, 0.8, -0.4], name: 'CAM 02　2F 走廊' },
+  { n: 3, p: [8.5, 2.7, 8.0], t: [13.5, 0.7, 3.8], name: 'CAM 05　3F 教師辦公室' },
+  { n: 4, p: [8.5, 2.7, 8.0], t: [14.5, 0.7, 4.4], name: 'CAM 09　4F 自習室' },
+  { n: 1, p: [31.4, 2.7, -1.2], t: [0, 0.8, 0.4], name: 'CAM 01　1F 走廊' },
+];
+let camIdx = 0;
+function openCCTV() { UI.mode = 'cctv'; camIdx = 0; setCam(); $('#cctv').hidden = false; canvas.classList.add('cctv'); releasePointer(); }
+function setCam() {
+  const c = CAMS[camIdx];
+  camCCTV.position.set(...c.p); camCCTV.lookAt(new THREE.Vector3(...c.t));
+  $('#camName').textContent = c.name;
+  const f4 = floors[4];
+  if (c.n === 4) {
+    S.cctv4++;
+    if (S.cctv4 >= 2 && !S.locked4) {
+      SeatedGirl.visible = false; Chaser.visible = true; Chaser.position.set(9.6, 0, 6.9);
+      Chaser.lookAt(8.5, 0, 8); sfx.stinger(0.6);
+    }
+  } else if (!S.chase) { SeatedGirl.visible = true; Chaser.visible = false; }
+}
+function closeCCTV() {
+  UI.mode = null; $('#cctv').hidden = true; canvas.classList.remove('cctv');
+  if (!S.chase) { SeatedGirl.visible = true; Chaser.visible = false; }
+  if (S.cctv4 >= 2 && !S.cctvMsg) { S.cctvMsg = true; say([['你', '……剛剛那是什麼。']], false); }
+}
+function cycleCam(d) { camIdx = (camIdx + d + CAMS.length) % CAMS.length; sfx.click(); setCam(); }
+
+/* =========================================================
+   Endings
+   ========================================================= */
+const ENDINGS = {
+  A: { title: '鎖上的門', time: 'AM 03:00', body: [
+    '你往樓下跑。3F、2F、1F……樓梯間的牌子又寫著 4F。',
+    '再往下跑，還是 4F。',
+    '醒來的時候，你坐在保全室。桌上的交接單寫著你的名字。前一位保全：你。',
+    '電話響了。是小晴。',
+    '「爸，補習班的門怎麼從外面鎖起來了？我出不去。……爸，現在幾點了？」',
+  ], hint: '鎖上的門，也可以打開。' },
+  B: { title: '天亮了', time: 'AM 05:48', body: [
+    '「快天亮了。」',
+    '她點點頭，把准考證放進書包，站起來，走出自習室。走廊盡頭的窗戶慢慢變亮，她沒有回頭。',
+    '六點交班。你提著鹹酥雞回家，小晴趴在書桌上睡著了，數學考卷寫得滿滿的。',
+    '最後一題旁邊，有一行不是她的字跡：「加油，妳一定考得上。」',
+  ], hint: '你讓她回家了。' },
+  C: { title: '晚自習', time: 'AM 06:00', body: [
+    '你沒有回答。',
+    '她安靜了很久，然後點點頭，低頭繼續寫考卷。你拉開旁邊的椅子坐下來陪她。',
+    '早上接班的保全調出監視器。四樓自習室裡，兩個人影一直坐到天亮。',
+    '交接單上多了一行字：「4F 自習室的門一定要鎖好。」',
+  ], hint: '有些規則，是大人為了自己訂的。' },
+};
+function getFound() { try { return JSON.parse(localStorage.getItem('lsr-endings') || '[]'); } catch (e) { return []; } }
+function addFound(k) { const a = getFound(); if (!a.includes(k)) a.push(k); try { localStorage.setItem('lsr-endings', JSON.stringify(a)); } catch (e) {} return a; }
+async function ending(k) {
+  UI.mode = 'ending'; S.chase = false; releasePointer(); murmur.target = 0;
+  const e = ENDINGS[k];
+  $('#fade').classList.toggle('white', k === 'B');
+  await fadeTo(1, 900);
+  const found = addFound(k);
+  $('#endTag').textContent = `結局 ${k}`;
+  $('#endTime').textContent = e.time;
+  $('#endTitle').textContent = e.title;
+  $('#endBody').innerHTML = e.body.map((p, i) => `<p class="${i === e.body.length - 1 ? 'chill' : ''}">${p}</p>`).join('');
+  $('#endList').innerHTML = ['A', 'B', 'C'].map(x => `<span class="${found.includes(x) ? 'got' : ''}">${found.includes(x) ? x + '　' + ENDINGS[x].title : x + '　？？？'}</span>`).join('');
+  $('#endHint').textContent = found.length < 3 ? `已解鎖 ${found.length}／3 個結局。${e.hint}` : '三個結局都找到了。謝謝你值完這班。';
+  $('#hud').hidden = true; $('#touch').hidden = true;
+  $('#ending').hidden = false;
+  $('#fade').classList.remove('white');
+  await fadeTo(0, 600);
+  if (k === 'A') sfx.ringOnce();
+}
+async function caught() {
+  if (UI.mode === 'dead') return;
+  UI.mode = 'dead'; S.chase = false;
+  const dx = Chaser.position.x - P.x, dz = Chaser.position.z - P.z;
+  P.yaw = Math.atan2(-dx, -dz); P.pitch = 0.08;
+  const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw);
+  Chaser.position.set(P.x + fx * 0.55, -0.08, P.z + fz * 0.55);
+  Chaser.lookAt(P.x, 0, P.z);
+  sfx.scream(); flashRed();
+  await sleep(1100);
+  await fadeTo(1, 200);
+  Chaser.visible = false;
+  releasePointer();
+  const c = await showPaper(`<h3>她把你留下來了</h3><div class="meta">AM 02:14　4F 自習室</div>
+    <p>「十一點以後，誰都不准離開。」</p>
+    <p class="note" style="color:#6d665a">提示：被手電筒照到時，她會停下來。</p>`, '', '從 4F 再試一次');
+  await fadeTo(1, 10);
+  P.x = 6; P.z = 0; P.yaw = -Math.PI / 2; P.pitch = 0;
+  Chaser.position.set(31, 0, 0); Chaser.visible = true;
+  setFlash(true);
+  S.chase = true; UI.mode = null;
+  await fadeTo(0, 500);
+}
+
+/* =========================================================
+   UI helpers: toast, subtitles, paper, choice, fade
+   ========================================================= */
+let toastT = 0;
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2800); }
+function fadeTo(v, ms) { const f = $('#fade'); f.style.transitionDuration = ms + 'ms'; f.style.opacity = v; return sleep(ms + 30); }
+function flashRed() { const r = $('#redflash'); r.style.opacity = .85; setTimeout(() => r.style.opacity = 0, 450); }
+let skipLine = null, subToken = 0;
+function showSub(who, text, red) {
+  const s = $('#sub'); s.hidden = false; s.classList.toggle('red', !!red);
+  s.innerHTML = (who ? `<b>${who}</b>` : '') + text;
+}
+async function say(lines, block = true) {
+  const tok = ++subToken;
+  if (block) { UI.mode = 'dialog'; }
+  for (const [who, text, red] of lines) {
+    if (tok !== subToken && !block) return;
+    showSub(who, text, red);
+    if (red) sfx.whisper(0.8);
+    const dur = Math.max(1900, text.length * 125);
+    await new Promise(res => { const t = setTimeout(res, dur); if (block) skipLine = () => { clearTimeout(t); res(); }; });
+    if (block) skipLine = null;
+  }
+  if (tok === subToken) $('#sub').hidden = true;
+  if (block && UI.mode === 'dialog') UI.mode = null;
+}
+let paperDone = null;
+function showPaper(html, cls = '', btn = '放下') {
+  releasePointer();
+  const prev = UI.mode; UI.mode = 'paper';
+  const p = $('#paper'); p.className = 'paper ' + cls;
+  p.innerHTML = html + `<div class="close"><button class="btn" type="button" id="paperBtn">${btn}</button></div>`;
+  $('#sheet').hidden = false;
+  return new Promise(res => {
+    paperDone = () => { $('#sheet').hidden = true; paperDone = null; UI.mode = prev === 'dead' ? 'dead' : null; res(); };
+    $('#paperBtn').onclick = paperDone;
+    setTimeout(() => $('#paperBtn') && $('#paperBtn').focus(), 50);
+  });
+}
+let choiceDone = null;
+function choose(opts) {
+  releasePointer(); UI.mode = 'choice';
+  const c = $('#choice'); c.hidden = false;
+  c.innerHTML = opts.map((o, i) => `<button class="btn" type="button" data-i="${i}"><kbd>${i + 1}</kbd>${o}</button>`).join('');
+  return new Promise(res => {
+    choiceDone = i => { c.hidden = true; choiceDone = null; UI.mode = null; res(i); };
+    c.querySelectorAll('button').forEach(b => b.onclick = () => choiceDone(+b.dataset.i));
+  });
+}
+
+/* =========================================================
+   Audio (all synthesized)
+   ========================================================= */
+let AC = null, master, noiseBuf;
+const murmur = { g: null, target: 0, level: 0 };
+let hum = null, amb = null, beat = 0;
+function initAudio() {
+  if (AC) { AC.resume(); return; }
+  try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
+  master = AC.createGain(); master.gain.value = 0.9; master.connect(AC.destination);
+  noiseBuf = AC.createBuffer(1, AC.sampleRate * 2, AC.sampleRate);
+  const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  // room tone
+  const n = noise(); const lp = AC.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 260;
+  amb = AC.createGain(); amb.gain.value = 0.07; n.connect(lp).connect(amb).connect(master); n.start();
+  // fluorescent hum
+  const o = AC.createOscillator(); o.type = 'sawtooth'; o.frequency.value = 120;
+  const bp = AC.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 240; bp.Q.value = 6;
+  hum = AC.createGain(); hum.gain.value = 0.0; o.connect(bp).connect(hum).connect(master); o.start();
+  // murmured reciting from the study room: band-passed noise with a syllable-rate tremolo
+  const m = noise(); const mbp = AC.createBiquadFilter(); mbp.type = 'bandpass'; mbp.frequency.value = 520; mbp.Q.value = 3;
+  const trem = AC.createGain(); trem.gain.value = 0.5;
+  const lfo = AC.createOscillator(); lfo.frequency.value = 4.3; const lg = AC.createGain(); lg.gain.value = 0.5; lfo.connect(lg).connect(trem.gain); lfo.start();
+  murmur.g = AC.createGain(); murmur.g.gain.value = 0; m.connect(mbp).connect(trem).connect(murmur.g).connect(master); m.start();
+}
+function noise() { const s = AC.createBufferSource(); s.buffer = noiseBuf; s.loop = true; return s; }
+function env(g, t0, a, peak, dcy) { g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(peak, t0 + a); g.gain.exponentialRampToValueAtTime(0.0001, t0 + a + dcy); }
+function burst({ f = 800, type = 'lowpass', q = 1, a = 0.005, peak = 0.3, d = 0.1, at = 0 } = {}) {
+  if (!AC) return; const t = AC.currentTime + at;
+  const s = noise(); const fl = AC.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q;
+  const g = AC.createGain(); s.connect(fl).connect(g).connect(master); env(g, t, a, peak, d);
+  s.start(t, Math.random()); s.stop(t + a + d + 0.05);
+}
+function tone({ f = 440, f2 = null, type = 'sine', a = 0.01, peak = 0.2, d = 0.3, at = 0 } = {}) {
+  if (!AC) return; const t = AC.currentTime + at;
+  const o = AC.createOscillator(); o.type = type; o.frequency.setValueAtTime(f, t); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + a + d);
+  const g = AC.createGain(); o.connect(g).connect(master); env(g, t, a, peak, d); o.start(t); o.stop(t + a + d + 0.05);
+}
+let ringIv = 0;
+const sfx = {
+  step: run => burst({ f: run ? 650 : 420, peak: run ? 0.32 : 0.2, d: 0.08 }),
+  click: () => { tone({ f: 1500, type: 'square', peak: 0.05, d: 0.03 }); burst({ f: 3000, type: 'highpass', peak: 0.08, d: 0.03 }); },
+  page: () => burst({ f: 2600, type: 'highpass', peak: 0.12, d: 0.22, a: 0.03 }),
+  keys: () => { for (let i = 0; i < 5; i++) tone({ f: 2400 + Math.random() * 1800, type: 'triangle', peak: 0.04, d: 0.08, at: i * 0.05 }); },
+  lock: () => { tone({ f: 1900, type: 'square', peak: 0.06, d: 0.04 }); tone({ f: 1300, type: 'square', peak: 0.07, d: 0.05, at: 0.18 }); burst({ f: 1800, type: 'bandpass', q: 4, peak: 0.25, d: 0.08, at: 0.18 }); },
+  slam: () => { burst({ f: 220, peak: 0.9, d: 0.35 }); tone({ f: 70, f2: 40, peak: 0.6, d: 0.4 }); },
+  chair: () => { tone({ f: 180, f2: 420, type: 'sawtooth', peak: 0.05, a: 0.05, d: 0.5 }); burst({ f: 900, type: 'bandpass', q: 6, peak: 0.12, d: 0.5, a: 0.05 }); },
+  creak: () => { tone({ f: 70, f2: 150, type: 'sawtooth', peak: 0.09, a: 0.2, d: 1.2 }); tone({ f: 95, f2: 120, type: 'sawtooth', peak: 0.05, a: 0.3, d: 1.1 }); },
+  stairs: () => { for (let i = 0; i < 6; i++) burst({ f: 500, peak: 0.25, d: 0.07, at: i * 0.14 }); },
+  heartbeat: () => { tone({ f: 58, f2: 40, peak: 0.55, d: 0.16 }); tone({ f: 52, f2: 38, peak: 0.4, d: 0.18, at: 0.2 }); },
+  whisper: (dur = 1) => burst({ f: 2400, type: 'bandpass', q: 2.5, a: 0.25, peak: 0.16, d: dur }),
+  stinger: (amt = 1) => {
+    [196, 207.6, 277, 293.6, 415].forEach((f, i) => tone({ f, type: 'sawtooth', a: 0.02, peak: 0.07 * amt, d: 2.4, at: i * 0.01 }));
+    burst({ f: 1200, type: 'bandpass', q: 0.7, a: 0.05, peak: 0.35 * amt, d: 1.6 });
+  },
+  scream: () => {
+    tone({ f: 880, f2: 520, type: 'sawtooth', a: 0.01, peak: 0.28, d: 1.2 });
+    tone({ f: 1240, f2: 700, type: 'square', a: 0.01, peak: 0.12, d: 1.1 });
+    burst({ f: 3000, type: 'highpass', a: 0.01, peak: 0.6, d: 1.2 });
+  },
+  ringOnce: () => { for (let i = 0; i < 2; i++) { tone({ f: 440, peak: 0.07, a: 0.02, d: 0.4, at: i * 0.5 }); tone({ f: 480, peak: 0.07, a: 0.02, d: 0.4, at: i * 0.5 }); } },
+  ringStart: () => { sfx.ringOnce(); clearInterval(ringIv); ringIv = setInterval(sfx.ringOnce, 2600); },
+  ringStop: () => clearInterval(ringIv),
+};
+
+/* =========================================================
+   Input
+   ========================================================= */
+const keys = new Set();
+const stick = { x: 0, y: 0, id: null };
+let runToggle = false, holdT = 0, holding = null, useDown = false;
+function setFlash(on) { flash.intensity = on && S.light ? 2.4 : 0; $('#tLight').classList.toggle('on', flash.intensity > 0); }
+function releasePointer() { if (document.pointerLockElement) document.exitPointerLock(); }
+function useStart() {
+  if (UI.mode === 'dialog') { skipLine && skipLine(); return; }
+  if (UI.mode === 'paper') { paperDone && paperDone(); return; }
+  if (UI.mode === 'cctv') { closeCCTV(); return; }
+  if (UI.mode !== null) return;
+  useDown = true;
+  const it = target;
+  if (!it) return;
+  const h = typeof it.hold === 'function' ? it.hold() : it.hold;
+  if (h) { holding = it; holdT = 0; }
+  else it.act();
+}
+function useEnd() { useDown = false; holding = null; holdT = 0; $('#hold').hidden = true; }
+addEventListener('keydown', e => {
+  if (UI.mode === 'title' || UI.mode === 'ending') return;
+  if (e.repeat && e.code === 'KeyE') return;
+  keys.add(e.code);
+  if (e.code === 'KeyE' || e.code === 'Enter' || e.code === 'Space') { e.preventDefault(); useStart(); }
+  if (e.code === 'KeyF' && UI.mode === null) { setFlash(flash.intensity === 0); sfx.click(); }
+  if (UI.mode === 'cctv') { if (e.code === 'ArrowLeft' || e.code === 'KeyA') cycleCam(-1); if (e.code === 'ArrowRight' || e.code === 'KeyD') cycleCam(1); if (e.code === 'Escape') closeCCTV(); }
+  if (UI.mode === 'choice' && choiceDone) { if (e.code === 'Digit1') choiceDone(0); if (e.code === 'Digit2') choiceDone(1); }
+  if (UI.mode === 'paper' && e.code === 'Escape') paperDone && paperDone();
+});
+addEventListener('keyup', e => { keys.delete(e.code); if (e.code === 'KeyE' || e.code === 'Enter' || e.code === 'Space') useEnd(); });
+addEventListener('blur', () => { keys.clear(); useEnd(); });
+const look = (dx, dy, k) => { P.yaw -= dx * k; P.pitch = Math.max(-1.3, Math.min(1.3, P.pitch - dy * k)); };
+document.addEventListener('mousemove', e => { if (document.pointerLockElement === canvas && UI.mode === null) look(e.movementX, e.movementY, 0.0022); });
+let drag = null;
+canvas.addEventListener('pointerdown', e => {
+  if (UI.mode === 'cctv') { cycleCam(1); return; }
+  if (UI.mode === 'dialog') { skipLine && skipLine(); return; }
+  if (UI.mode !== null) return;
+  if (e.pointerType === 'mouse' && !isTouch) {
+    if (!document.pointerLockElement) { try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (err) {} }
+    else { useStart(); return; }
+  }
+  drag = { id: e.pointerId, x: e.clientX, y: e.clientY };
+});
+canvas.addEventListener('pointermove', e => {
+  if (!drag || drag.id !== e.pointerId || document.pointerLockElement) return;
+  if (UI.mode === null) look(e.clientX - drag.x, e.clientY - drag.y, isTouch ? 0.006 : 0.004);
+  drag.x = e.clientX; drag.y = e.clientY;
+});
+const endDrag = e => { if (drag && drag.id === e.pointerId) drag = null; if (e.pointerType === 'mouse') useEnd(); };
+canvas.addEventListener('pointerup', endDrag); canvas.addEventListener('pointercancel', endDrag);
+const stickEl = $('#stick'), knob = $('#stick i');
+function stickMove(e) {
+  const r = stickEl.getBoundingClientRect(), R = r.width / 2;
+  let dx = e.clientX - (r.left + R), dy = e.clientY - (r.top + R);
+  const l = Math.hypot(dx, dy); if (l > R) { dx *= R / l; dy *= R / l; }
+  stick.x = dx / R; stick.y = dy / R; knob.style.transform = `translate(${dx}px,${dy}px)`;
+}
+stickEl.addEventListener('pointerdown', e => { stick.id = e.pointerId; stickEl.setPointerCapture(e.pointerId); stickMove(e); });
+stickEl.addEventListener('pointermove', e => { if (stick.id === e.pointerId) stickMove(e); });
+const stickEnd = e => { if (stick.id === e.pointerId) { stick.id = null; stick.x = stick.y = 0; knob.style.transform = ''; } };
+stickEl.addEventListener('pointerup', stickEnd); stickEl.addEventListener('pointercancel', stickEnd);
+$('#tUse').addEventListener('pointerdown', e => { e.preventDefault(); useStart(); });
+$('#tUse').addEventListener('pointerup', useEnd); $('#tUse').addEventListener('pointercancel', useEnd);
+$('#tRun').addEventListener('click', () => { runToggle = !runToggle; $('#tRun').classList.toggle('on', runToggle); });
+$('#tLight').addEventListener('click', () => { if (UI.mode === null) { setFlash(flash.intensity === 0); sfx.click(); } });
+$('#camPrev').onclick = () => cycleCam(-1); $('#camNext').onclick = () => cycleCam(1); $('#camExit').onclick = closeCCTV;
+document.addEventListener('pointerlockchange', () => { if (!document.pointerLockElement) { keys.clear(); } });
+
+/* =========================================================
+   Simulation
+   ========================================================= */
+function blocked(x, z, r) {
+  for (const c of F.col) { if (c.off) continue; if (x > c.x1 - r && x < c.x2 + r && z > c.z1 - r && z < c.z2 + r) return true; }
+  return false;
+}
+function slide(o, dx, dz, r) {
+  if (!blocked(o.x + dx, o.z, r)) o.x += dx;
+  if (!blocked(o.x, o.z + dz, r)) o.z += dz;
+}
+const ray = new THREE.Raycaster(); ray.far = 2.4;
+const center = new THREE.Vector2(0, 0);
+function shown(o) { while (o) { if (!o.visible) return false; o = o.parent; } return true; }
+let target = null;
+function findTarget() {
+  ray.setFromCamera(center, camera);
+  const hits = ray.intersectObject(F.g, true);
+  for (const h of hits) {
+    if (!shown(h.object)) continue;
+    if (h.object.isPoints || h.object.isLine) continue;
+    let o = h.object, it = null;
+    while (o && o !== F.g) { if (o.userData.int) { it = o.userData.int; break; } o = o.parent; }
+    if (it && (!it.on || it.on())) return it;
+    return null;
+  }
+  return null;
+}
+let bobT = 0, stepAcc = 0, flick = 0, beatT = 0;
+const fwd = new THREE.Vector3();
+function update(dt) {
+  // tweens
+  tweens = tweens.filter(tw => { tw.t += dt; tw.f(Math.min(1, tw.t / tw.d)); return tw.t < tw.d; });
+  let moving = false, run = false;
+  if (UI.mode === null) {
+    let mx = 0, mz = 0;
+    if (keys.has('KeyW') || keys.has('ArrowUp')) mz += 1;
+    if (keys.has('KeyS') || keys.has('ArrowDown')) mz -= 1;
+    if (keys.has('KeyA') || keys.has('ArrowLeft')) mx -= 1;
+    if (keys.has('KeyD') || keys.has('ArrowRight')) mx += 1;
+    mx += stick.x; mz -= stick.y;
+    const l = Math.hypot(mx, mz);
+    if (l > 0.08) {
+      if (l > 1) { mx /= l; mz /= l; }
+      run = keys.has('ShiftLeft') || keys.has('ShiftRight') || runToggle;
+      const sp = (run ? 4.3 : 2.3) * dt;
+      const sy = Math.sin(P.yaw), cy = Math.cos(P.yaw);
+      slide(P, (-sy * mz + cy * mx) * sp, (-cy * mz - sy * mx) * sp, 0.3);
+      moving = true;
+      stepAcc += sp; bobT += sp * (run ? 2.6 : 3.2);
+      if (stepAcc > (run ? 0.85 : 0.7)) { stepAcc = 0; sfx.step(run); }
+    }
+    // the 3F corridor folds back on itself until you find what was hidden
+    if (F.n === 3 && S.loop && P.x < 3.4 && Math.abs(P.z) < 1.5) { P.x += 16; loopTick(); }
+  }
+  camera.position.set(P.x, 1.6 + (moving ? Math.sin(bobT) * 0.035 : 0), P.z);
+  camera.rotation.set(P.pitch, P.yaw, 0);
+
+  // ambience
+  if (AC) {
+    const lit = F.corLevel;
+    hum.gain.setTargetAtTime(0.012 * lit, AC.currentTime, 0.2);
+    let mg = 0;
+    if (F.n === 4 && murmur.target) { const d = Math.hypot(P.x - 12, P.z - 1.5); mg = Math.max(0, 1 - d / 22) * 0.22; }
+    murmur.g.gain.setTargetAtTime(mg, AC.currentTime, 0.4);
+  }
+  // flicker on upper floors
+  flick -= dt;
+  if (flick < 0 && (F.n === 4 && !S.locked4 || F.n === 3 && S.loop)) {
+    flick = 0.05 + Math.random() * (F.n === 4 ? 0.4 : 1.2);
+    const base = F.n === 4 ? 0.45 : 0.75;
+    setCorridor(F, Math.random() < 0.18 ? 0.05 : base);
+  }
+  // 2F glimpse: she stands at the far end once
+  if (F.n === 2 && S.lightsOff >= 1 && S.glimpse === 0 && Math.abs(P.z) < 1.4 && P.x < 18) {
+    S.glimpse = 1; Ghost.position.set(31, 0, 0); Ghost.lookAt(P.x, 0, P.z); Ghost.visible = true; sfx.stinger(0.35);
+    setTimeout(() => { Ghost.visible = false; S.glimpse = 2; }, 1300);
+  }
+  // chase
+  if (S.chase && UI.mode !== 'dead') {
+    const gx = Chaser.position.x, gz = Chaser.position.z;
+    let tx = P.x, tz = P.z;
+    const pIn = Math.abs(P.z) > 1.5, gIn = Math.abs(gz) > 1.5;
+    if (pIn && !gIn) { const door = Math.floor(P.x / 8) * 8 + 4; if (Math.abs(gx - door) > 0.3) { tx = door; tz = 0; } }
+    else if (gIn && !pIn) { const door = Math.floor(gx / 8) * 8 + 4; if (Math.abs(gx - door) > 0.3) { tx = door; tz = gz; } else { tx = door; tz = 0; } }
+    const dx = P.x - gx, dz = P.z - gz, dist = Math.hypot(dx, dz);
+    camera.getWorldDirection(fwd);
+    const ang = Math.acos(Math.max(-1, Math.min(1, (fwd.x * -dx + fwd.z * -dz) / (Math.hypot(fwd.x, fwd.z) * dist + 1e-6))));
+    const litOn = flash.intensity > 0 && ang < 0.42 && dist < 13;
+    const sp = (litOn ? 0.45 : 3.25) * dt;
+    const mx = tx - gx, mz = tz - gz, ml = Math.hypot(mx, mz) || 1;
+    const g = { x: gx, z: gz }; slide(g, mx / ml * sp, mz / ml * sp, 0.25);
+    Chaser.position.set(g.x, 0, g.z); Chaser.lookAt(P.x, 0, P.z);
+    Chaser.visible = !(litOn && Math.random() < 0.08);
+    beatT -= dt;
+    if (beatT < 0) { beatT = 0.35 + Math.min(1.2, dist / 12); sfx.heartbeat(); }
+    if (dist < 0.85) caught();
+  }
+  // interaction target
+  target = UI.mode === null ? findTarget() : null;
+  const pr = $('#prompt');
+  const lbl = target ? (typeof target.label === 'function' ? target.label() : target.label) : '';
+  if (lbl) { pr.hidden = false; pr.innerHTML = `<kbd>${isTouch ? '互動' : 'E'}</kbd>${lbl}`; } else pr.hidden = true;
+  $('#cross').classList.toggle('on', !!lbl);
+  if (holding) {
+    if (target !== holding || !useDown) { holding = null; $('#hold').hidden = true; }
+    else {
+      const need = typeof holding.hold === 'function' ? holding.hold() : holding.hold;
+      holdT += dt; $('#hold').hidden = false; $('#hold i').style.width = Math.min(100, holdT / need * 100) + '%';
+      if (holdT >= need) { const h = holding; holding = null; holdT = 0; $('#hold').hidden = true; h.act(); }
+    }
+  }
+}
+function renderHUD() {
+  const loopClock = F.n === 3 && S.loop ? (Math.random() < 0.5 ? 'AM 0?:??' : 'AM 12:31') : S.clock;
+  $('#clock').innerHTML = `${loopClock}<small>明德大樓 ${F.n}F</small>`;
+  const t = [];
+  t.push([S.note, '閱讀交接單']);
+  t.push([S.keys && S.light, '拿鑰匙和手電筒']);
+  if (S.phoneRing) t.push([false, '接電話', 'warn']);
+  t.push([S.lightsOff >= 3, `2F：關掉教室的燈（${Math.min(3, S.lightsOff)}/3）`]);
+  t.push([S.teacher, '3F：請陳老師下班']);
+  if (S.loop || S.ticket) t.push([S.ticket, S.dirOpen ? '3F：主任辦公室' : '3F：回到樓梯間', S.ticket ? '' : 'warn']);
+  t.push([S.locked4, '4F：把自習室的門鎖好']);
+  if (S.chase) t.push([false, '？？？', 'warn']);
+  if (S.unlocked && !S.given) t.push([false, '4F：自習室', 'warn']);
+  const html = t.map(([d, s, c]) => `<li class="${d ? 'done' : (c || '')}">${s}</li>`).join('');
+  const ol = $('#taskList'); if (ol.innerHTML !== html) ol.innerHTML = html;
+  $('#lockhint').hidden = isTouch || !!document.pointerLockElement || UI.mode !== null;
+}
+const gctx = $('#grain').getContext('2d');
+const gimg = gctx.createImageData(160, 90);
+function grain() {
+  const d = gimg.data;
+  for (let i = 0; i < d.length; i += 4) { const v = Math.random() * 255; d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255; }
+  gctx.putImageData(gimg, 0, 0);
+}
+function renderCCTV() {
+  const c = CAMS[camIdx];
+  const keepFlash = flash.intensity;
+  F.g.visible = false; floors[c.n].g.visible = true; flash.intensity = 0;
+  const h0 = hemi.intensity; hemi.intensity = 0.32;
+  renderer.render(scene, camCCTV);
+  floors[c.n].g.visible = false; F.g.visible = true; flash.intensity = keepFlash; hemi.intensity = h0;
+  const now = Math.floor(performance.now() / 1000);
+  $('#camTime').textContent = `2026/10/06 ${S.clock.replace(/^(AM|PM) /, '')}:${String(now % 60).padStart(2, '0')}`;
+}
+let last = performance.now(), frame = 0;
+function loop(now) {
+  requestAnimationFrame(loop);
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (!F) return;
+  if (UI.mode !== 'title' && UI.mode !== 'ending') update(dt);
+  if (UI.mode === 'cctv') renderCCTV(); else renderer.render(scene, camera);
+  if ((frame++ & 1) === 0) grain();
+  if (UI.mode !== 'title' && UI.mode !== 'ending') renderHUD();
+}
+
+/* =========================================================
+   Boot
+   ========================================================= */
+let built = false;
+async function newGame() {
+  S = freshState(); P = { x: 4, z: -4.6, yaw: 0, pitch: -0.12 };
+  tweens = []; hemi.intensity = 0.16; murmur.target = 0;
+  buildWorld();
+  F = null; goFloor(1);
+  P.x = 4; P.z = -4.6; P.yaw = 0; P.pitch = -0.12;
+  setFlash(false);
+  $('#hud').hidden = false; $('#touch').hidden = !isTouch;
+  $('#ending').hidden = true; $('#title').hidden = true;
+  UI.mode = 'cut';
+  await fadeTo(1, 10);
+  await fadeTo(0, 1400);
+  UI.mode = null;
+  say([['你', '……先看看桌上那張交接單。']], false);
+}
+$('#startBtn').addEventListener('click', async () => {
+  initAudio();
+  if (!isTouch) { try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (e) {} }
+  $('#startBtn').disabled = true; $('#loadNote').textContent = '準備中……';
+  while (!built) await sleep(100);
+  await newGame();
+  $('#startBtn').disabled = false; $('#loadNote').textContent = '建議戴耳機・約 15–25 分鐘・三種結局';
+});
+$('#againBtn').addEventListener('click', async () => { initAudio(); await fadeTo(1, 400); await newGame(); });
+if (isTouch) { $('#ctlDesk').hidden = true; $('#ctlTouch').hidden = false; $('#app').classList.add('touch'); }
+// idle title backdrop: a dim corridor behind the title card
+(async () => {
+  await loadFonts(); buildTextures(); buildMaterials(); built = true;
+  S = freshState(); P = { x: 30, z: 0, yaw: Math.PI / 2, pitch: 0 };
+  buildWorld(); goFloor(2); camera.position.set(30, 1.6, 0); camera.rotation.set(0, Math.PI / 2, 0);
+})();
+requestAnimationFrame(loop);
+// test hook
+window.__lsr = { get S() { return S; }, get P() { return P; }, get F() { return F; }, get UI() { return UI; }, goFloor, stairs, ending };
+})();
+</script>
+<!--ARTIFACT-END-->
+</body>
+</html>
