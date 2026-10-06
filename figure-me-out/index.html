@@ -244,7 +244,7 @@ const yawTo = (dx, dz) => Math.atan2(-dx, -dz);
 const angDiff = (a, b) => { let d = b - a; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return d; };
 
 const HALF = 46;
-const EYE_H = 1.66;
+const EYE_H = 1.4;
 const NAMES = ['阿明','小美','大雄','阿光','Kenji','Mina','老王','Lucas','小虎','Yuki','阿傑','Emma','胖丁','Leo','小芳',
   'Max','阿豪','Nora','皮皮','Zed','Ivy','阿強','Coco','小咪','Rex'];
 const DIFF = {
@@ -258,10 +258,19 @@ const MODES = {
   ctf: { name: '奪旗模式', goal: 3, time: 360 },
 };
 const TEAM_COL = [0x3d8bff, 0xff4646];
-const SKIN_TONES = [0xf6d3b8, 0xeac09c, 0xd9a47c, 0xb57c55, 0x8d5a3b, 0x62402a];
-const HAIR_COL = [0x14100c, 0x2e1d12, 0x5a3820, 0x8c6136, 0xc9a46a, 0x6e6e6e, 0x7a2e1c];
-const PANTS_COL = [0x27354f, 0x1d222b, 0x4f4436, 0x3b4048, 0x5c6150, 0x6b5a48];
-const SHOE_COL = [0x1a1a1a, 0xeeeeee, 0x553620, 0x2e3546, 0x8a2a2a];
+const SKIN_TONES = [0xffe0c7, 0xffd0a8, 0xf2b58a, 0xd9956a, 0xb07650, 0x8a5a3c];
+const HAIR_COL = [0x2b2235, 0x5a3820, 0xf2c94c, 0xff7aa8, 0x6ec6ff, 0x8f6bff, 0xff8a3d, 0x3ddc97];
+const PANTS_COL = [0x3b4a8c, 0x2d2d3a, 0x6a4cff, 0x2fa38a, 0xffb84d, 0xe5e5f0];
+const SHOE_COL = [0xffffff, 0xff5c7a, 0x2d2d3a, 0xffd23f, 0x4dc3ff];
+const PASTEL = [0xff9eb8, 0x8fc8ff, 0xffd86e, 0x9fe39a, 0xc3a6ff, 0xffb27a];
+let toonGrad = null;
+function toonGradient() {
+  if (!toonGrad) {
+    toonGrad = new THREE.DataTexture(new Uint8Array([110, 190, 255]), 3, 1, THREE.LuminanceFormat);
+    toonGrad.minFilter = toonGrad.magFilter = THREE.NearestFilter; toonGrad.generateMipmaps = false; toonGrad.needsUpdate = true;
+  }
+  return toonGrad;
+}
 const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 const TEAM_CSS = ['#3d8bff', '#ff4d4d'];
 const TEAM_NAME = ['藍隊', '紅隊'];
@@ -317,8 +326,8 @@ function initThree() {
   maxAniso = renderer.capabilities.getMaxAnisotropy();
 
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xa9cbe8);
-  scene.fog = new THREE.Fog(0xa9cbe8, 55, 140);
+  scene.background = new THREE.Color(0x9fdcff);
+  scene.fog = new THREE.Fog(0x9fdcff, 60, 150);
   camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.05, 300);
   camera.rotation.order = 'YXZ';
   camera.position.set(0, 30, 50); camera.lookAt(0, 0, 0);
@@ -354,8 +363,8 @@ function buildMap() {
   // ground
   const c = document.createElement('canvas'); c.width = c.height = 256;
   const g = c.getContext('2d');
-  g.fillStyle = '#9fae8a'; g.fillRect(0, 0, 256, 256);
-  g.fillStyle = '#97a684'; g.fillRect(0, 0, 128, 128); g.fillRect(128, 128, 128, 128);
+  g.fillStyle = '#9be38a'; g.fillRect(0, 0, 256, 256);
+  g.fillStyle = '#8fd67f'; g.fillRect(0, 0, 128, 128); g.fillRect(128, 128, 128, 128);
   g.strokeStyle = 'rgba(0,0,0,.08)'; g.lineWidth = 3; g.strokeRect(0, 0, 256, 256);
   const tex = new THREE.CanvasTexture(c);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(24, 24); tex.anisotropy = maxAniso;
@@ -364,16 +373,16 @@ function buildMap() {
   scene.add(ground);
 
   // outer walls
-  const wc = 0x6c7a89;
+  const wc = 0x7fb2ff;
   addBox(0, -HALF - 0.5, HALF * 2 + 2, 1, 4, wc);
   addBox(0, HALF + 0.5, HALF * 2 + 2, 1, 4, wc);
   addBox(-HALF - 0.5, 0, 1, HALF * 2, 4, wc);
   addBox(HALF + 0.5, 0, 1, HALF * 2, 4, wc);
 
   // center pieces
-  addBox(0, 0, 5, 5, 3.2, 0xc9a66b);
-  addBox(0, 18, 10, 1, 3, 0xb98b5e);
-  addBox(0, -18, 10, 1, 3, 0xb98b5e);
+  addBox(0, 0, 5, 5, 3.2, 0xffd86e);
+  addBox(0, 18, 10, 1, 3, 0xff9eb8);
+  addBox(0, -18, 10, 1, 3, 0xff9eb8);
 
   // one half, mirrored by point symmetry for team fairness
   const half = [
@@ -389,7 +398,10 @@ function buildMap() {
     [-28, -17, 2, 2, 1.1, 0xa0703f], [-36, 14, 2, 2, 1.1, 0xa0703f], [-20, 28, 2, 2, 1.1, 0xa0703f],
     [-4, 10, 2, 2, 1.1, 0xa0703f],
   ];
-  for (const [x, z, w, d, h, col] of half) { addBox(x, z, w, d, h, col); addBox(-x, -z, w, d, h, col); }
+  half.forEach(([x, z, w, d, h], i) => {
+    const col = h < 2 ? 0xffa65c : h >= 4 ? 0xfff4e6 : PASTEL[i % PASTEL.length];
+    addBox(x, z, w, d, h, col); addBox(-x, -z, w, d, h, col);
+  });
 }
 function collides(x, z, r) {
   if (Math.abs(x) > HALF - r || Math.abs(z) > HALF - r) return true;
@@ -452,87 +464,83 @@ class Agent {
     this.target = null; this.memT = 0; this.readP = 0; this.typing = -1; this.typeTarget = null; this.readNum = '';
     this.think = Math.random() * 0.2; this.moveDir = { x: 0, z: 0 }; this.lookYaw = 0; this.wp = null;
     this.stuckT = 0; this.lastPos = new V3(); this.strafe = 1; this.strafeT = 0; this.role = 'attack'; this.glanceT = 0;
-    this.color = G.mode === 'ffa' ? new THREE.Color().setHSL(Math.random(), 0.65, 0.55).getHex() : TEAM_COL[team];
+    this.color = G.mode === 'ffa' ? new THREE.Color().setHSL(Math.random(), 0.8, 0.6).getHex() : TEAM_COL[team];
     if (!isPlayer) this.buildMesh();
   }
   eye() { return new V3(this.pos.x, this.pos.y + EYE_H, this.pos.z); }
-  plate() { const f = fwdOf(this.yaw); return new V3(this.pos.x + f.x * 0.14, this.pos.y + 1.73, this.pos.z + f.z * 0.14); }
+  plate() { const f = fwdOf(this.yaw); return new V3(this.pos.x + f.x * 0.27, this.pos.y + 1.51, this.pos.z + f.z * 0.27); }
   buildMesh() {
-    // A jointed, roughly life-proportioned human (~1.8 m) built from primitives.
+    // Chunky, colourful, big-headed toon character with a number card on the forehead.
     const root = new THREE.Group(), rig = new THREE.Group();
     root.add(rig);
-    const M = (color, roughness = 0.85) => new THREE.MeshStandardMaterial({ color, roughness, metalness: 0 });
-    const skin = M(pick(SKIN_TONES), 0.65), shirt = M(this.color, 0.9), pants = M(pick(PANTS_COL), 0.95);
-    const shoe = M(pick(SHOE_COL), 0.55), hairM = M(pick(HAIR_COL), 0.9);
-    const white = M(0xf4f4f4, 0.35), iris = M(pick([0x2a1a10, 0x3d5a80, 0x4a6b3a, 0x1a1a1a]), 0.3), lipM = M(0xa25a4c, 0.6);
+    const M = color => new THREE.MeshToonMaterial({ color, gradientMap: toonGradient() });
+    const skin = M(pick(SKIN_TONES)), shirt = M(this.color), pants = M(pick(PANTS_COL));
+    const shoe = M(pick(SHOE_COL)), hairM = M(pick(HAIR_COL)), black = M(0x1a1420);
+    const white = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const blush = new THREE.MeshBasicMaterial({ color: 0xff8fa3, transparent: true, opacity: 0.55 });
     const mk = (geo, mat, parent, x = 0, y = 0, z = 0, shadow = false) => {
       const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = shadow; parent.add(m); return m;
     };
-    const longSleeve = Math.random() < 0.5;
-    const hips = new THREE.Group(); hips.position.y = 0.92; rig.add(hips);
-    // pelvis + legs
-    mk(new THREE.SphereGeometry(0.16, 14, 10), pants, hips, 0, 0.03, 0, true).scale.set(1, 0.62, 0.72);
+    const hips = new THREE.Group(); hips.position.y = 0.38; rig.add(hips);
+    // stubby legs with round shoes
     this.legs = [];
     for (const s of [-1, 1]) {
-      const thigh = new THREE.Group(); thigh.position.set(s * 0.09, 0, 0); hips.add(thigh);
-      mk(new THREE.CylinderGeometry(0.078, 0.06, 0.45, 12), pants, thigh, 0, -0.22, 0, true);
-      const knee = new THREE.Group(); knee.position.y = -0.44; thigh.add(knee);
-      mk(new THREE.SphereGeometry(0.062, 10, 8), pants, knee);
-      mk(new THREE.CylinderGeometry(0.06, 0.045, 0.42, 12), pants, knee, 0, -0.21, 0, true);
-      const foot = mk(new THREE.BoxGeometry(0.105, 0.075, 0.25), shoe, knee, 0, -0.445, -0.05, true);
-      mk(new THREE.SphereGeometry(0.053, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), shoe, foot, 0, -0.037, -0.125).scale.set(1, 1.3, 0.9);
+      const thigh = new THREE.Group(); thigh.position.set(s * 0.12, 0, 0); hips.add(thigh);
+      mk(new THREE.CylinderGeometry(0.095, 0.085, 0.3, 12), pants, thigh, 0, -0.15, 0, true);
+      const knee = new THREE.Group(); knee.position.y = -0.3; thigh.add(knee);
+      mk(new THREE.SphereGeometry(0.11, 14, 10), shoe, knee, 0, -0.03, -0.05, true).scale.set(1, 0.62, 1.4);
       this.legs.push({ thigh, knee });
     }
-    // torso (lathe profile, flattened front-to-back)
-    const prof = [[0.001, -0.03], [0.15, -0.02], [0.155, 0.08], [0.145, 0.2], [0.165, 0.32], [0.19, 0.42], [0.185, 0.5], [0.13, 0.56], [0.05, 0.59], [0.001, 0.595]]
+    // bean-shaped body
+    const prof = [[0.001, -0.06], [0.2, -0.03], [0.28, 0.1], [0.305, 0.3], [0.285, 0.5], [0.21, 0.65], [0.09, 0.71], [0.001, 0.72]]
       .map(([r, y]) => new THREE.Vector2(r, y));
-    const torso = mk(new THREE.LatheGeometry(prof, 18), shirt, hips, 0, 0, 0, true);
-    torso.scale.z = 0.66; this.torso = torso;
-    mk(new THREE.CylinderGeometry(0.152, 0.152, 0.045, 18), M(0x2a2420, 0.5), hips, 0, 0.0, 0).scale.z = 0.7; // belt
-    mk(new THREE.CylinderGeometry(0.048, 0.055, 0.12, 10), skin, hips, 0, 0.62, 0, true); // neck
-    // arms
+    const torso = mk(new THREE.LatheGeometry(prof, 24), shirt, hips, 0, 0, 0, true);
+    torso.scale.z = 0.86; this.torso = torso;
+    mk(new THREE.CylinderGeometry(0.235, 0.215, 0.12, 24), pants, hips, 0, 0.0, 0).scale.z = 0.86; // shorts waist
+    // short arms with mitten hands
     this.arms = [];
     for (const s of [-1, 1]) {
-      const sh = new THREE.Group(); sh.position.set(s * 0.205, 0.5, 0); sh.rotation.z = s * 0.08; hips.add(sh);
-      mk(new THREE.SphereGeometry(0.058, 10, 8), shirt, sh);
-      mk(new THREE.CylinderGeometry(0.052, 0.044, 0.29, 10), shirt, sh, 0, -0.145, 0, true);
-      const el = new THREE.Group(); el.position.y = -0.29; sh.add(el);
-      mk(new THREE.CylinderGeometry(0.043, 0.034, 0.26, 10), longSleeve ? shirt : skin, el, 0, -0.13, 0, true);
-      mk(new THREE.SphereGeometry(0.045, 10, 8), skin, el, 0, -0.295, -0.005).scale.set(0.75, 1.35, 0.55);
+      const sh = new THREE.Group(); sh.position.set(s * 0.29, 0.5, 0); sh.rotation.z = s * 0.15; hips.add(sh);
+      mk(new THREE.SphereGeometry(0.08, 12, 8), shirt, sh);
+      mk(new THREE.CylinderGeometry(0.075, 0.07, 0.2, 10), shirt, sh, 0, -0.1, 0, true);
+      const el = new THREE.Group(); el.position.y = -0.2; sh.add(el);
+      mk(new THREE.CylinderGeometry(0.068, 0.064, 0.14, 10), skin, el, 0, -0.07, 0);
+      mk(new THREE.SphereGeometry(0.09, 12, 10), skin, el, 0, -0.17, 0, true);
       this.arms.push({ sh, el });
     }
-    // head
-    const head = new THREE.Group(); head.position.y = 0.74; hips.add(head); this.head = head;
-    mk(new THREE.SphereGeometry(0.118, 20, 16), skin, head, 0, 0, 0, true).scale.set(1, 1.13, 1.1);
-    mk(new THREE.SphereGeometry(0.085, 14, 10), skin, head, 0, -0.065, -0.03).scale.set(1, 0.85, 1.05);   // jaw
-    mk(new THREE.SphereGeometry(0.02, 8, 6), skin, head, 0, -0.012, -0.132).scale.set(0.9, 1.5, 1.2);      // nose
+    // big round head
+    const head = new THREE.Group(); head.position.y = 1.0; hips.add(head); this.head = head;
+    mk(new THREE.SphereGeometry(0.3, 28, 22), skin, head, 0, 0, 0, true).scale.set(1, 0.95, 0.95);
     for (const s of [-1, 1]) {
-      mk(new THREE.SphereGeometry(0.019, 10, 8), white, head, s * 0.041, 0.012, -0.108).scale.z = 0.6;
-      mk(new THREE.SphereGeometry(0.0095, 8, 6), iris, head, s * 0.041, 0.012, -0.119);
-      mk(new THREE.BoxGeometry(0.038, 0.008, 0.012), hairM, head, s * 0.043, 0.04, -0.118).rotation.z = -s * 0.12; // brows
-      mk(new THREE.SphereGeometry(0.028, 8, 6), skin, head, s * 0.118, -0.005, 0.005).scale.set(0.4, 1, 0.7);   // ears
+      mk(new THREE.SphereGeometry(0.042, 12, 10), black, head, s * 0.1, -0.03, -0.265).scale.set(0.8, 1.25, 0.5);
+      mk(new THREE.SphereGeometry(0.013, 8, 6), white, head, s * 0.1 + 0.012, -0.012, -0.285);
+      const b = mk(new THREE.CircleGeometry(0.045, 16), blush, head, s * 0.175, -0.09, -0.236);
+      b.rotation.y = Math.PI + s * 0.62;
     }
-    mk(new THREE.BoxGeometry(0.042, 0.009, 0.01), lipM, head, 0, -0.06, -0.111); // mouth
-    // hair: cap tilted back so the forehead stays clear
+    const mouth = mk(new THREE.TorusGeometry(0.035, 0.009, 6, 14, Math.PI), black, head, 0, -0.095, -0.272);
+    mouth.rotation.z = Math.PI;
+    // hair: a cap tilted well back so the forehead stays bare, plus a random accent
+    const cap = mk(new THREE.SphereGeometry(0.312, 24, 12, 0, Math.PI * 2, 0, Math.PI * 0.5), hairM, head, 0, 0.01, 0.02, true);
+    cap.scale.set(1.02, 1, 1); cap.rotation.x = 0.85;
     const style = Math.floor(Math.random() * 4);
-    const cap = mk(new THREE.SphereGeometry(0.127, 18, 10, 0, Math.PI * 2, 0, Math.PI * 0.5), hairM, head, 0, 0.012, 0.012, true);
-    cap.scale.set(1.02, 1.15, 1.1); cap.rotation.x = 0.42;
-    if (style === 1) mk(new THREE.SphereGeometry(0.12, 14, 10), hairM, head, 0, -0.1, 0.06).scale.set(1.08, 1.7, 0.62); // long
-    if (style === 2) mk(new THREE.SphereGeometry(0.055, 10, 8), hairM, head, 0, 0.1, 0.11);                          // bun
-    if (style === 3) mk(new THREE.SphereGeometry(0.06, 10, 8), hairM, head, 0, -0.03, 0.14).scale.set(0.7, 1.6, 0.7); // ponytail
-    // headband holding the number card
-    const band = mk(new THREE.CylinderGeometry(1, 1, 0.032, 28, 1, true), new THREE.MeshStandardMaterial({ color: 0x1d1d22, roughness: 0.7, side: THREE.DoubleSide }), head, 0, 0.058, 0);
-    band.scale.set(0.122, 1, 0.133);
+    if (style === 0) mk(new THREE.ConeGeometry(0.05, 0.16, 8), hairM, head, 0.04, 0.32, 0.06).rotation.z = -0.5;     // tuft
+    if (style === 1) mk(new THREE.SphereGeometry(0.1, 12, 10), hairM, head, 0, 0.2, 0.22);                           // bun
+    if (style === 2) for (const s of [-1, 1]) mk(new THREE.SphereGeometry(0.09, 12, 10), hairM, head, s * 0.27, -0.02, 0.1).scale.set(0.7, 1.3, 0.9); // pigtails
+    if (style === 3) { const cp = mk(new THREE.CylinderGeometry(0.2, 0.2, 0.04, 20), shirt, head, 0, 0.27, 0.06); cp.rotation.x = 0.35;
+      mk(new THREE.SphereGeometry(0.06, 10, 8), M(0xffffff), head, 0, 0.32, 0.1); }                                       // pom beanie
+    // headband + forehead card
+    const band = mk(new THREE.CylinderGeometry(1, 1, 0.05, 32, 1, true), new THREE.MeshToonMaterial({ color: 0x2a2440, gradientMap: toonGradient(), side: THREE.DoubleSide }), head, 0, 0.13, 0);
+    band.scale.set(0.274, 1, 0.262);
     this.plateCv = document.createElement('canvas'); this.plateCv.width = 256; this.plateCv.height = 128;
     this.plateTex = new THREE.CanvasTexture(this.plateCv); this.plateTex.anisotropy = maxAniso;
-    const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.32, 0.16), new THREE.MeshBasicMaterial({ map: this.plateTex }));
-    plate.position.set(0, 0.07, -0.132); plate.rotation.y = Math.PI; plate.rotation.x = 0.2;
+    const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.21), new THREE.MeshBasicMaterial({ map: this.plateTex }));
+    plate.position.set(0, 0.135, -0.27); plate.rotation.y = Math.PI; plate.rotation.x = 0.42;
     head.add(plate); this.plateMesh = plate;
-    // palm pressed over the card while covering
-    this.hand = mk(new THREE.SphereGeometry(0.1, 12, 8), skin, head, 0.02, 0.07, -0.155);
-    this.hand.scale.set(1.45, 0.8, 0.3); this.hand.visible = false;
+    // mitten pressed over the card while covering
+    this.hand = mk(new THREE.SphereGeometry(0.13, 14, 10), skin, head, 0.02, 0.12, -0.29);
+    this.hand.scale.set(1.6, 0.85, 0.38); this.hand.rotation.x = 0.42; this.hand.visible = false;
     if (G.mode !== 'ffa' && player && this.team === player.team) {
-      const tag = makeTextSprite(this.name, TEAM_CSS[this.team]); tag.position.set(0, 2.15, 0); root.add(tag);
+      const tag = makeTextSprite(this.name, TEAM_CSS[this.team]); tag.position.set(0, 1.98, 0); root.add(tag);
     }
     this.rig = rig; this.walkPh = Math.random() * 6; this.animPos = new V3();
     root.visible = false;
@@ -540,26 +548,29 @@ class Agent {
     this.mesh = root;
   }
   animate(dt) {
-    // walk cycle driven by actual ground speed; covering raises the right arm
+    // bouncy waddle driven by actual ground speed; covering raises the right arm
     const sp = Math.hypot(this.pos.x - this.animPos.x, this.pos.z - this.animPos.z) / Math.max(dt, 1e-4);
     this.animPos.copy(this.pos);
     const amt = clamp(sp / 4.5, 0, 1);
-    this.walkPh += dt * (2.2 + sp * 1.5);
+    this.walkPh += dt * (2.5 + sp * 2.2);
     const ph = this.walkPh;
     for (let i = 0; i < 2; i++) {
       const s = i ? Math.PI : 0, L = this.legs[i], A = this.arms[i];
-      L.thigh.rotation.x = Math.sin(ph + s) * 0.55 * amt;
-      L.knee.rotation.x = -(Math.max(0, Math.sin(ph + s - 1.3)) * 0.95 * amt + 0.04);
-      A.sh.rotation.x = -Math.sin(ph + s) * 0.45 * amt;
-      A.sh.rotation.z = (i ? 1 : -1) * 0.08;
-      A.el.rotation.x = 0.18 + 0.25 * amt;
+      L.thigh.rotation.x = Math.sin(ph + s) * 0.7 * amt;
+      L.knee.rotation.x = -Math.max(0, Math.sin(ph + s - 1.3)) * 0.5 * amt;
+      A.sh.rotation.x = -Math.sin(ph + s) * 0.7 * amt;
+      A.sh.rotation.z = (i ? 1 : -1) * (0.15 + 0.1 * amt);
+      A.el.rotation.x = 0.2;
     }
     if (this.covering) {
       const R = this.arms[1];
-      R.sh.rotation.x = 2.75; R.sh.rotation.z = -0.5; R.el.rotation.x = 1.75;
+      R.sh.rotation.x = 2.9; R.sh.rotation.z = -0.35; R.el.rotation.x = 0.9;
     }
-    this.torso.scale.y = 1 + Math.sin(performance.now() / 600 + this.id) * 0.012;
-    this.rig.rotation.z = Math.sin(ph) * 0.025 * amt;
+    const t = performance.now() / 1000;
+    this.torso.scale.y = 1 + Math.sin(t * 2 + this.id) * 0.015;
+    this.rig.position.y = Math.abs(Math.sin(ph)) * 0.06 * amt;
+    this.rig.rotation.z = Math.sin(ph) * 0.07 * amt;
+    this.head.rotation.z = Math.sin(t * 1.3 + this.id) * 0.04 * (1 - amt);
   }
   drawPlate(text) {
     if (!this.plateCv) return;
@@ -606,7 +617,7 @@ function spawnAgent(a) {
   a.covering = false; a.coverT = 0; a.flashT = 0; a.distractT = 0;
   a.items = { ...ITEM_MAX }; a.target = null; a.readP = 0; a.typing = -1; a.wp = null; a.memT = 0;
   a.yaw = yawTo(-a.pos.x, -a.pos.z) + rand(-0.6, 0.6); a.lookYaw = a.yaw; a.pitch = 0;
-  if (a.mesh) { a.mesh.visible = true; a.rig.rotation.set(0, 0, 0); a.hand.visible = false; a.plateMesh.visible = true; a.animPos.copy(a.pos); a.drawPlate('?'.repeat(CFG.digits)); a.mesh.position.copy(a.pos); a.mesh.rotation.y = a.yaw; }
+  if (a.mesh) { a.mesh.visible = true; a.rig.rotation.set(0, 0, 0); a.rig.position.y = 0; a.hand.visible = false; a.plateMesh.visible = true; a.animPos.copy(a.pos); a.drawPlate('?'.repeat(CFG.digits)); a.mesh.position.copy(a.pos); a.mesh.rotation.y = a.yaw; }
   if (a.isPlayer) { $('deathOv').classList.add('hidden'); flashT = 0; }
 }
 
