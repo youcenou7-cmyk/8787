@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>午夜校舍 Midnight School</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;height:100%;overflow:hidden;background:#000;color:#ddd;
+    font-family:"Noto Serif TC","PingFang TC","Microsoft JhengHei",serif;
+    touch-action:none;user-select:none;-webkit-user-select:none;}
+  canvas{display:block;position:fixed;inset:0;width:100vw;height:100vh;}
+
+  #hud{position:fixed;left:14px;top:12px;pointer-events:none;font-size:14px;
+    text-shadow:0 0 4px #000,0 0 8px #000;display:none;}
+  #hp{font-size:20px;color:#c0283a;letter-spacing:3px;}
+  #stam{width:120px;height:5px;background:rgba(255,255,255,.12);margin:6px 0;border-radius:3px;overflow:hidden;}
+  #stamFill{height:100%;background:#cfd8c4;width:100%;}
+  #inv{margin-top:4px;font-size:13px;color:#bbb;}
+  #obj{margin-top:6px;font-size:13px;color:#e8d9b0;max-width:62vw;}
+  #room{position:fixed;top:14px;left:50%;transform:translateX(-50%);font-size:18px;letter-spacing:6px;
+    color:#e9e1d0;opacity:0;transition:opacity .8s;pointer-events:none;text-shadow:0 0 8px #000;}
+  #msg{position:fixed;left:50%;bottom:9vh;transform:translateX(-50%);max-width:min(640px,90vw);
+    text-align:center;font-size:17px;line-height:1.6;color:#eee;background:rgba(0,0,0,.55);
+    padding:10px 18px;border-radius:4px;opacity:0;transition:opacity .4s;pointer-events:none;
+    border-left:2px solid #7a1520;}
+  #prompt{position:fixed;left:50%;bottom:calc(9vh + 70px);transform:translateX(-50%);font-size:14px;
+    color:#f3e7c4;background:rgba(0,0,0,.6);padding:5px 12px;border-radius:3px;display:none;pointer-events:none;}
+
+  .screen{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;padding:24px;background:radial-gradient(ellipse at center,rgba(30,6,10,.88),rgba(0,0,0,.97));z-index:10;}
+  .screen.show{display:flex;}
+  h1{font-size:clamp(42px,10vw,84px);margin:0;letter-spacing:.25em;color:#e8e2d6;font-weight:700;
+    text-shadow:0 0 18px rgba(160,20,30,.7),3px 3px 0 #5a0d14;animation:flick 6s infinite;}
+  .sub{font-style:italic;color:#a33;letter-spacing:.2em;margin:8px 0 34px;font-size:15px;}
+  @keyframes flick{0%,92%,96%,100%{opacity:1}93%,95%{opacity:.35}94%{opacity:.8}}
+  .btn{background:transparent;color:#ddd;border:1px solid #6b1a22;padding:11px 34px;margin:7px;font-size:17px;
+    font-family:inherit;letter-spacing:.2em;cursor:pointer;min-width:200px;transition:.2s;}
+  .btn:hover,.btn:focus{background:#4a0d14;color:#fff;outline:none;}
+  .story{max-width:620px;line-height:2;font-size:17px;color:#d8d0c0;white-space:pre-line;}
+  .help{max-width:560px;text-align:left;line-height:1.9;font-size:15px;color:#ccc;}
+  .help b{color:#e8d9b0;}
+  .note{background:#d9d0b8;color:#2a2018;max-width:480px;padding:28px 30px;line-height:1.9;font-size:16px;
+    box-shadow:0 0 40px #000;transform:rotate(-1deg);text-align:left;
+    background-image:repeating-linear-gradient(transparent 0 29px,rgba(80,60,40,.18) 29px 30px);}
+  .note h3{margin:0 0 10px;font-size:18px;border-bottom:1px solid rgba(60,40,20,.4);padding-bottom:6px;}
+  .small{font-size:13px;color:#888;margin-top:18px;}
+  #overTitle{font-size:clamp(34px,8vw,60px);color:#b01e2c;letter-spacing:.2em;margin:0 0 14px;}
+  #winTitle{font-size:clamp(34px,8vw,60px);color:#e8e2d6;letter-spacing:.2em;margin:0 0 14px;}
+
+  #touch{display:none;}
+  .tb{position:fixed;width:64px;height:64px;border-radius:50%;border:1px solid rgba(255,255,255,.25);
+    background:rgba(20,20,25,.45);color:#ddd;font-size:15px;display:flex;align-items:center;justify-content:center;
+    z-index:5;font-family:inherit;}
+  .tb.on{background:rgba(120,25,35,.6);}
+  #bAct{right:24px;bottom:110px;width:76px;height:76px;}
+  #bRun{right:112px;bottom:40px;}
+  #bLight{right:24px;bottom:28px;}
+  #bPause{right:14px;top:12px;width:44px;height:44px;font-size:14px;}
+  #joyBase{position:fixed;width:110px;height:110px;border-radius:50%;border:1px solid rgba(255,255,255,.2);
+    background:rgba(255,255,255,.05);display:none;z-index:4;pointer-events:none;}
+  #joyKnob{position:absolute;left:35px;top:35px;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.25);}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="hud">
+  <div id="hp">♥♥♥</div>
+  <div id="stam"><div id="stamFill"></div></div>
+  <div id="inv"></div>
+  <div id="obj"></div>
+</div>
+<div id="room"></div>
+<div id="prompt"></div>
+<div id="msg"></div>
+
+<div id="touch">
+  <button class="tb" id="bAct">互動</button>
+  <button class="tb" id="bRun">奔跑</button>
+  <button class="tb" id="bLight">手電筒</button>
+  <button class="tb" id="bPause">❚❚</button>
+  <div id="joyBase"><div id="joyKnob"></div></div>
+</div>
+
+<div class="screen show" id="sTitle">
+  <h1>午夜校舍</h1>
+  <div class="sub">— A Labyrinth After Hours —</div>
+  <button class="btn" id="btnStart">開始遊戲</button>
+  <button class="btn" id="btnHelp">操作說明</button>
+  <div class="small">建議戴上耳機遊玩</div>
+</div>
+
+<div class="screen" id="sHelp">
+  <div class="help">
+    <b>移動</b>　WASD / 方向鍵（手機：左半邊螢幕拖曳）<br>
+    <b>奔跑</b>　Shift（會消耗體力，而且腳步聲會被聽見）<br>
+    <b>互動</b>　E / 空白鍵（躲進置物櫃、開門、放下禮物）<br>
+    <b>手電筒</b>　F 開關（滑鼠控制照射方向）。開著燈，遠處的人也看得見你。<br>
+    <b>暫停</b>　Esc / P<br><br>
+    夜間管理員看見你就會追上來——躲進<b>置物櫃</b>或<b>廁所隔間</b>甩掉他，但別讓他看見你躲進去。<br>
+    圖書館裡……有別的東西。撿到<b>白色糖果</b>可以恢復一點精神。
+  </div>
+  <button class="btn" id="btnHelpBack" style="margin-top:24px">返回</button>
+</div>
+
+<div class="screen" id="sIntro">
+  <div class="story" id="introText"></div>
+  <button class="btn" id="btnIntro" style="margin-top:30px">繼續</button>
+</div>
+
+<div class="screen" id="sNote">
+  <div class="note"><h3 id="noteTitle"></h3><div id="noteBody"></div></div>
+  <div class="small">點擊或按 E 關閉</div>
+</div>
+
+<div class="screen" id="sPause">
+  <h1 style="font-size:40px;animation:none">暫停</h1>
+  <div style="height:24px"></div>
+  <button class="btn" id="btnResume">繼續</button>
+  <button class="btn" id="btnRestart">重新開始</button>
+  <button class="btn" id="btnToTitle">回到標題</button>
+</div>
+
+<div class="screen" id="sOver">
+  <div id="overTitle">被抓到了</div>
+  <div class="story" id="overText"></div>
+  <button class="btn" id="btnRetry" style="margin-top:28px">再試一次</button>
+  <button class="btn" id="btnOverTitle">回到標題</button>
+</div>
+
+<div class="screen" id="sWin">
+  <div id="winTitle">逃出校舍</div>
+  <div class="story" id="winText"></div>
+  <button class="btn" id="btnWinAgain" style="margin-top:28px">再玩一次</button>
+</div>
+
+<script>
+(()=>{
+'use strict';
+// ================= 基本設定 =================
+const T = 32, W = 46, H = 32;
+const cvs = document.getElementById('c'), ctx = cvs.getContext('2d');
+const dk = document.createElement('canvas'), dctx = dk.getContext('2d');
+let DPR = 1, CW = 0, CH = 0, SC = 1;
+function resize(){
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  CW = innerWidth; CH = innerHeight;
+  cvs.width = dk.width = Math.floor(CW * DPR);
+  cvs.height = dk.height = Math.floor(CH * DPR);
+  SC = Math.max(CW, CH) / (T * 20);
+  if (Math.min(CW, CH) / SC < T * 9) SC = Math.min(CW, CH) / (T * 9);
+}
+addEventListener('resize', resize); resize();
+
+// ================= 地圖 =================
+const E=0, WL=1, DOOR=2, LR=3, LB=4, GATE=5, LOCKER=6, DESK=7, SHELF=8, PIANO=9, STALL=10, TDESK=11, SINK=12, CHAIR=13;
+const F_HALL=1, F_WOOD=2, F_OFF=3, F_CARPET=4, F_TILE=5;
+const solidSet = new Set([WL,LR,LB,GATE,LOCKER,DESK,SHELF,PIANO,STALL,TDESK,SINK,CHAIR]);
+const opaqueSet = new Set([WL,LR,LB,GATE,SHELF,LOCKER,STALL]);
+const hideSet = new Set([LOCKER,STALL]);
+let map, flo;
+
+const rooms = [
+  {n:'一年A班',x0:1,y0:1,x1:10,y1:11},
+  {n:'二年B班',x0:12,y0:1,x1:21,y1:11},
+  {n:'三年C班',x0:23,y0:1,x1:32,y1:11},
+  {n:'教務處',x0:34,y0:1,x1:44,y1:11},
+  {n:'一樓走廊',x0:1,y0:12,x1:44,y1:15},
+  {n:'圖書館',x0:1,y0:16,x1:19,y1:30},
+  {n:'西側走廊',x0:20,y0:16,x1:23,y1:30},
+  {n:'音樂教室',x0:25,y0:16,x1:34,y1:24},
+  {n:'洗手間',x0:36,y0:16,x1:44,y1:24},
+  {n:'玄關大廳',x0:24,y0:25,x1:44,y1:31},
+];
+const LIB = {x0:1*T, y0:17*T, x1:20*T, y1:31*T};
+
+function buildMap(){
+  map = []; flo = [];
+  for (let y=0;y<H;y++){ map.push(new Array(W).fill(WL)); flo.push(new Array(W).fill(0)); }
+  const carve=(x0,y0,x1,y1,f)=>{for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){map[y][x]=E;flo[y][x]=f;}};
+  const put=(x,y,t,f)=>{map[y][x]=t; if(f)flo[y][x]=f;};
+  carve(1,13,44,15,F_HALL);
+  carve(21,16,23,30,F_HALL);
+  carve(1,1,10,11,F_WOOD); carve(12,1,21,11,F_WOOD); carve(23,1,32,11,F_WOOD);
+  carve(34,1,44,11,F_OFF);
+  carve(1,17,19,30,F_CARPET);
+  carve(25,17,34,24,F_WOOD);
+  carve(36,17,44,24,F_TILE);
+  carve(25,26,44,30,F_HALL);
+  // doors
+  put(5,12,DOOR,F_HALL); put(16,12,DOOR,F_HALL); put(27,12,DOOR,F_HALL); put(39,12,LR,F_HALL);
+  put(10,16,LB,F_HALL); put(29,16,DOOR,F_HALL); put(40,16,DOOR,F_HALL);
+  for (let y=27;y<=29;y++) put(24,y,E,F_HALL);
+  put(34,31,GATE,F_HALL); put(35,31,GATE,F_HALL);
+  // classrooms
+  for (const x0 of [1,12,23]){
+    for (const y of [4,6,8]) for (let k=0;k<4;k++) put(x0+1+k*2,y,DESK);
+    put(x0+4,2,TDESK); put(x0+5,2,TDESK);
+    put(x0+9,10,LOCKER);
+  }
+  // office
+  for (const x of [36,37,38,41,42,43]){ put(x,4,TDESK); put(x,5,TDESK); put(x,8,TDESK); }
+  for (let x=40;x<=43;x++) put(x,1,SHELF);
+  put(44,2,LOCKER); put(44,3,LOCKER);
+  // library
+  for (const y of [19,22,25]){ for(let x=2;x<=7;x++) put(x,y,SHELF); for(let x=12;x<=18;x++) put(x,y,SHELF); }
+  for (let x=3;x<=6;x++) put(x,28,DESK); for (let x=13;x<=16;x++) put(x,28,DESK);
+  put(19,29,LOCKER); put(1,17,LOCKER);
+  // music
+  put(26,18,PIANO); put(27,18,PIANO);
+  for (const y of [21,23]) for (const x of [27,29,31,33]) put(x,y,CHAIR);
+  // restroom
+  for (const y of [18,19,20]) put(44,y,SINK);
+  for (const x of [37,39,41,43]) put(x,24,STALL);
+  // entrance
+  for (const x of [28,29,30,31,38,39,40,41]) put(x,26,LOCKER);
+  // corridor lockers
+  for (const x of [2,3,8,9,13,14,19,24,25,31,32,36,43]) put(x,13,LOCKER);
+  for (const x of [2,3,15,33,43]) put(x,15,LOCKER);
+  for (const y of [19,20,24]) put(23,y,LOCKER);
+}
+
+function tile(tx,ty){ if(tx<0||ty<0||tx>=W||ty>=H) return WL; return map[ty][tx]; }
+function tAt(x,y){ return tile(Math.floor(x/T), Math.floor(y/T)); }
+function solidAt(x,y){ return solidSet.has(tAt(x,y)); }
+function opaqueAt(x,y){ return opaqueSet.has(tAt(x,y)); }
+function collide(x,y,r){ return solidAt(x-r,y-r)||solidAt(x+r,y-r)||solidAt(x-r,y+r)||solidAt(x+r,y+r); }
+function moveEnt(e,dx,dy,r){
+  if (dx){
+    if (!collide(e.x+dx,e.y,r)) e.x+=dx;
+    else if (!dy){ const cy=Math.floor(e.y/T)*T+T/2; if(!collide(e.x+dx,cy,r)) e.y+=Math.sign(cy-e.y)*Math.min(Math.abs(cy-e.y),Math.abs(dx)); }
+  }
+  if (dy){
+    if (!collide(e.x,e.y+dy,r)) e.y+=dy;
+    else if (!dx){ const cx=Math.floor(e.x/T)*T+T/2; if(!collide(cx,e.y+dy,r)) e.x+=Math.sign(cx-e.x)*Math.min(Math.abs(cx-e.x),Math.abs(dy)); }
+  }
+}
+function los(x0,y0,x1,y1){
+  const d=Math.hypot(x1-x0,y1-y0), n=Math.ceil(d/6);
+  for(let i=1;i<n;i++){ const t=i/n; if(opaqueAt(x0+(x1-x0)*t, y0+(y1-y0)*t)) return false; }
+  return true;
+}
+function angDiff(a,b){ let d=a-b; while(d>Math.PI)d-=Math.PI*2; while(d<-Math.PI)d+=Math.PI*2; return d; }
+function roomAt(x,y){ const tx=Math.floor(x/T),ty=Math.floor(y/T); for(const r of rooms) if(tx>=r.x0&&tx<=r.x1&&ty>=r.y0&&ty<=r.y1) return r; return null; }
+
+function findPath(sx,sy,tx,ty){
+  if (sx===tx&&sy===ty) return [];
+  if (tx<0||ty<0||tx>=W||ty>=H||solidSet.has(map[ty][tx])) return null;
+  const N=W*H, g=new Float32Array(N).fill(1e9), came=new Int32Array(N).fill(-1), closed=new Uint8Array(N);
+  const s=sy*W+sx, t=ty*W+tx, open=[[s,0]]; g[s]=0;
+  const hh=(x,y)=>Math.abs(x-tx)+Math.abs(y-ty);
+  while(open.length){
+    let bi=0; for(let i=1;i<open.length;i++) if(open[i][1]<open[bi][1]) bi=i;
+    const c=open[bi][0]; open[bi]=open[open.length-1]; open.pop();
+    if (closed[c]) continue; closed[c]=1;
+    if (c===t) break;
+    const cx=c%W, cy=(c/W)|0;
+    for (const [ox,oy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+      const nx=cx+ox, ny=cy+oy; if(nx<0||ny<0||nx>=W||ny>=H) continue;
+      if (solidSet.has(map[ny][nx])) continue;
+      const n=ny*W+nx, ng=g[c]+1;
+      if (ng<g[n]){ g[n]=ng; came[n]=c; open.push([n,ng+hh(nx,ny)]); }
+    }
+  }
+  if (came[t]===-1) return null;
+  const path=[]; let c=t; while(c!==s){ path.push([c%W,(c/W)|0]); c=came[c]; }
+  return path.reverse();
+}
+
+// ================= 音效 =================
+let AC=null, master, noiseBuf, droneGain, chaseGain;
+function initAudio(){
+  if (AC) { if(AC.state==='suspended') AC.resume(); return; }
+  try { AC = new (window.AudioContext||window.webkitAudioContext)(); } catch(e){ return; }
+  master = AC.createGain(); master.gain.value = 0.8; master.connect(AC.destination);
+  noiseBuf = AC.createBuffer(1, AC.sampleRate*2, AC.sampleRate);
+  const d = noiseBuf.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1;
+  // ambient drone
+  droneGain = AC.createGain(); droneGain.gain.value = 0.05; droneGain.connect(master);
+  for (const f of [55,55.6,82.4]){ const o=AC.createOscillator(); o.frequency.value=f; o.type='sine'; o.connect(droneGain); o.start(); }
+  const ns=AC.createBufferSource(); ns.buffer=noiseBuf; ns.loop=true;
+  const nf=AC.createBiquadFilter(); nf.type='lowpass'; nf.frequency.value=300;
+  const ng=AC.createGain(); ng.gain.value=0.04; ns.connect(nf).connect(ng).connect(master); ns.start();
+  // chase drone
+  chaseGain = AC.createGain(); chaseGain.gain.value = 0;
+  const cf=AC.createBiquadFilter(); cf.type='lowpass'; cf.frequency.value=420; cf.connect(chaseGain); chaseGain.connect(master);
+  for (const f of [73.4,77.8,110]){ const o=AC.createOscillator(); o.type='sawtooth'; o.frequency.value=f; o.connect(cf); o.start(); }
+}
+function noise(dur,freq,q,vol,type='bandpass',delay=0){
+  if(!AC) return;
+  const t=AC.currentTime+delay, s=AC.createBufferSource(); s.buffer=noiseBuf;
+  const f=AC.createBiquadFilter(); f.type=type; f.frequency.value=freq; f.Q.value=q;
+  const g=AC.createGain(); g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.0008,t+dur);
+  s.connect(f).connect(g).connect(master); s.start(t, Math.random()*1.5); s.stop(t+dur+0.05);
+}
+function tone(freq,dur,type,vol,delay=0,slide=0){
+  if(!AC) return;
+  const t=AC.currentTime+delay, o=AC.createOscillator(), g=AC.createGain();
+  o.type=type; o.frequency.setValueAtTime(freq,t); if(slide) o.frequency.exponentialRampToValueAtTime(slide,t+dur);
+  g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(vol,t+0.01); g.gain.exponentialRampToValueAtTime(0.0008,t+dur);
+  o.connect(g).connect(master); o.start(t); o.stop(t+dur+0.05);
+}
+const sfx = {
+  step:(v)=>noise(0.07,500+Math.random()*300,1.2,0.12*v),
+  gstep:(v)=>{ noise(0.12,180+Math.random()*60,1,0.5*v,'lowpass'); },
+  heart:(v)=>{ tone(52,0.16,'sine',0.7*v); tone(48,0.16,'sine',0.5*v,0.2); },
+  pick:()=>{ tone(880,0.2,'triangle',0.2); tone(1320,0.3,'triangle',0.15,0.08); },
+  key:()=>{ [660,880,1100,1320].forEach((f,i)=>tone(f,0.35,'triangle',0.15,i*0.07)); },
+  door:()=>{ noise(0.6,300,3,0.4,'bandpass'); tone(90,0.4,'square',0.08,0.05,60); },
+  locked:()=>{ noise(0.12,900,4,0.3); noise(0.12,700,4,0.3,'bandpass',0.12); },
+  hide:()=>{ noise(0.25,1200,2,0.25); tone(140,0.12,'square',0.06,0.15); },
+  chase:()=>{ [110,116.5,155.6,233].forEach(f=>tone(f,1.4,'sawtooth',0.12)); noise(0.8,2500,1,0.25,'highpass'); },
+  hurt:()=>{ noise(0.5,800,0.8,0.6); tone(400,0.6,'sawtooth',0.2,0,80); },
+  scream:()=>{ tone(900,1.1,'sawtooth',0.3,0,180); tone(950,1.1,'square',0.15,0,200); noise(1.2,1500,0.6,0.6); },
+  bell:()=>{ [392,330,262,196].forEach((f,i)=>{ tone(f,1.6,'sine',0.25,i*0.9); tone(f*2.01,1.2,'sine',0.06,i*0.9); }); },
+  piano:()=>{ const n=[220,261.6,233.1,207.7,196,164.8]; n.forEach((f,i)=>tone(f,1.2,'triangle',0.18,i*0.45+Math.random()*0.1)); },
+  whisper:()=>{ for(let i=0;i<6;i++) noise(0.3,1800+Math.random()*1500,6,0.18,'bandpass',i*0.18); },
+  slam:()=>{ noise(0.7,120,0.7,1,'lowpass'); tone(60,0.6,'sine',0.6); },
+  win:()=>{ [523,659,784,1047].forEach((f,i)=>tone(f,1.4,'sine',0.15,i*0.25)); },
+};
+
+// ================= 文字內容 =================
+const NOTES = {
+  n1:{t:'值日生日誌',b:'三月十三日，晴。<br>圖書館又有人說聽到翻書聲，明明已經鎖門了。<br>管理員老伯說，晚上千萬別留在學校。<br>他說這句話的時候，眼睛一次都沒有眨。'},
+  n2:{t:'傳閱的紙條',b:'聽說十年前，有個學姊在圖書館等人。<br>等到閉館，都沒有等到。<br>後來……她就一直在那裡了。<br><br>如果在圖書館聽見有人叫你的名字，<b>千萬不要回頭。</b>'},
+  n3:{t:'夜間巡邏守則',b:'一、晚上十點後鎖上正門。<b>正門鑰匙存放於圖書館。</b><br>二、看到任何亮光，一律前往查看。<br>三、任何人都不准留在校內。<br>　　任何人。'},
+  n4:{t:'沒有署名的樂譜',b:'五線譜上一個音符都沒有，只寫了一行字：<br><br>「鋼琴會自己響，是因為她還在練那首沒彈完的曲子。」'},
+  n5:{t:'借書卡',b:'書名：《寫給你的信》<br>借閱人：（字跡被水暈開了）<br>應還日期：三月十四日<br><br>……這張卡片，從來沒有蓋上歸還章。'},
+  n6:{t:'管理員的筆記',b:'我知道她在等誰。<br>所以我不能讓任何人進來，也不能讓任何人出去。<br>這是我答應過的事。<br><br>……可是今晚，好像有人帶著糖果來了。'},
+};
+const INTRO = '三月十四日，白色情人節的前一夜。\n\n你偷偷溜進了學校，\n口袋裡放著一盒親手包好的白色糖果。\n\n只要把它放進她的抽屜，\n明天早上她就會看到。\n\n……只是，夜裡的校舍，安靜得有點不對勁。';
+
+// ================= 遊戲狀態 =================
+let S = 'title';         // title | intro | play | pause | note | over | win
+let P, G, GH, items, game, keys = {}, mouse = {x:0,y:0,active:false}, touchMove = {x:0,y:0}, runBtn=false;
+let msgQ = [], msgT = 0, roomT = 0, lastRoom = null, shake = 0, flash = 0, flashCol = '180,0,0';
+const WP = [[22,28],[35,28],[42,29],[29,28],[22,28],[22,20],[10,24],[10,29],[10,18],[22,14],[5,14],[5,9],[5,14],[16,14],[16,9],[16,14],[27,14],[27,9],[27,14],[39,14],[39,6],[39,14],[42,14],[40,20],[40,14],[29,14],[29,20],[29,14],[22,14]];
+
+function newGame(){
+  buildMap();
+  P = {x:16*T+T/2, y:10*T+T/2, a:-Math.PI/2, hp:3, st:100, tired:false, flash:true, hidden:null,
+       stepT:0, inv:0, red:false, blue:false, gold:false, gift:false, moving:false, running:false};
+  G = {x:22*T+T/2, y:29*T+T/2, a:-Math.PI/2, ta:-Math.PI/2, active:false, state:'patrol', path:[], wi:0,
+       sus:0, last:null, timer:0, repath:0, stepT:0, seenHide:false, a0:0};
+  GH = {x:9*T, y:24*T, tx:9*T, ty:24*T, active:false, respawn:0, whisperT:3, t:0};
+  items = [
+    {k:'red',x:3,y:10}, {k:'blue',x:43,y:9}, {k:'gold',x:3,y:30},
+    {k:'candy',x:14,y:2}, {k:'candy',x:18,y:18}, {k:'candy',x:34,y:24}, {k:'candy',x:44,y:22}, {k:'candy',x:9,y:14},
+    {k:'note',id:'n1',x:12,y:10}, {k:'note',id:'n2',x:32,y:2}, {k:'note',id:'n3',x:35,y:10},
+    {k:'note',id:'n4',x:30,y:19}, {k:'note',id:'n5',x:16,y:30}, {k:'note',id:'n6',x:26,y:30},
+  ].map(o=>({...o, px:o.x*T+T/2, py:o.y*T+T/2, taken:false}));
+  game = {time:0, lockdown:false, notes:0, hides:0, scareT:45, flicker:0, libVisited:false, candyHint:false, caughtBy:null, ending:0};
+  msgQ=[]; msgT=0; lastRoom=null; shake=0; flash=0;
+  document.getElementById('msg').style.opacity=0;
+  showMsg('（找到她的座位──三年C班，那張發著微光的課桌。）', 4);
+}
+
+// ================= UI =================
+const $ = id=>document.getElementById(id);
+function show(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.remove('show')); if(id) $(id).classList.add('show'); }
+function showMsg(t,d=3.2){ msgQ.push([t,d]); }
+function setState(s){
+  S = s;
+  const playing = (s==='play');
+  $('hud').style.display = (s==='play'||s==='pause'||s==='note') ? 'block' : 'none';
+  $('touch').style.display = (playing && isTouch) ? 'block' : 'none';
+  if (!playing) $('prompt').style.display='none';
+}
+let hudCache='';
+function updateHUD(){
+  const hp = '♥'.repeat(Math.max(0,P.hp)) + '<span style="color:#444">' + '♥'.repeat(3-Math.max(0,P.hp)) + '</span>';
+  const inv = [P.red?'<span style="color:#d44">🗝 紅鑰匙</span>':'', P.blue?'<span style="color:#58f">🗝 藍鑰匙</span>':'', P.gold?'<span style="color:#ec4">🗝 正門鑰匙</span>':''].filter(Boolean).join('　');
+  let obj;
+  if (!P.gift) obj = '◆ 把糖果放進三年C班她的座位';
+  else if (P.gold) obj = '◆ 逃到玄關大廳，打開正門！';
+  else if (P.blue) obj = '◆ 用藍鑰匙進入圖書館，找到正門鑰匙';
+  else if (P.red) obj = '◆ 用紅鑰匙打開教務處';
+  else obj = '◆ 正門被鎖住了……找找教務處的鑰匙';
+  const s = hp+'|'+inv+'|'+obj+'|'+game.notes+'|'+(P.flash?1:0);
+  if (s!==hudCache){
+    hudCache=s; $('hp').innerHTML=hp;
+    $('inv').innerHTML = (inv||'') + (inv?'<br>':'') + `📄 筆記 ${game.notes}/6　🔦 ${P.flash?'開':'關'}`;
+    $('obj').textContent = obj;
+  }
+  $('stamFill').style.width = P.st+'%';
+  $('stamFill').style.background = P.tired ? '#a33' : '#cfd8c4';
+}
+
+// ================= 輸入 =================
+const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints>0;
+addEventListener('keydown', e=>{
+  const k=e.key.toLowerCase(); keys[k]=true;
+  if (['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)) e.preventDefault();
+  if (S==='play'){
+    if (k==='e'||k===' '||k==='enter') interact();
+    if (k==='f') toggleFlash();
+    if (k==='escape'||k==='p') pause();
+  } else if (S==='note'){ if (k==='e'||k===' '||k==='enter'||k==='escape') closeNote(); }
+  else if (S==='pause'){ if (k==='escape'||k==='p') resume(); }
+  else if (S==='over'||S==='win'){ if (k==='r') startGame(); }
+});
+addEventListener('keyup', e=>{ keys[e.key.toLowerCase()]=false; });
+addEventListener('blur', ()=>{ keys={}; if(S==='play') pause(); });
+cvs.addEventListener('pointermove', e=>{ if(e.pointerType!=='mouse') return; mouse.x=e.clientX; mouse.y=e.clientY; mouse.active=true; });
+cvs.addEventListener('pointerdown', e=>{ if(e.pointerType==='mouse' && S==='play' && e.button===0) interact(); });
+
+let joy=null;
+const joyBase=$('joyBase'), joyKnob=$('joyKnob');
+cvs.addEventListener('touchstart', e=>{
+  mouse.active=false;
+  for (const t of e.changedTouches){
+    if (!joy && t.clientX < CW*0.6){
+      joy={id:t.identifier, ox:t.clientX, oy:t.clientY};
+      joyBase.style.display='block'; joyBase.style.left=(t.clientX-55)+'px'; joyBase.style.top=(t.clientY-55)+'px';
+      joyKnob.style.left='35px'; joyKnob.style.top='35px';
+    }
+  }
+  e.preventDefault();
+},{passive:false});
+cvs.addEventListener('touchmove', e=>{
+  for (const t of e.changedTouches){
+    if (joy && t.identifier===joy.id){
+      let dx=t.clientX-joy.ox, dy=t.clientY-joy.oy; const d=Math.hypot(dx,dy), m=45;
+      if (d>m){ dx=dx/d*m; dy=dy/d*m; }
+      touchMove.x=dx/m; touchMove.y=dy/m;
+      joyKnob.style.left=(35+dx)+'px'; joyKnob.style.top=(35+dy)+'px';
+    }
+  }
+  e.preventDefault();
+},{passive:false});
+const endTouch = e=>{ for (const t of e.changedTouches) if (joy && t.identifier===joy.id){ joy=null; touchMove.x=touchMove.y=0; joyBase.style.display='none'; } };
+cvs.addEventListener('touchend', endTouch); cvs.addEventListener('touchcancel', endTouch);
+const bRun=$('bRun');
+bRun.addEventListener('pointerdown', e=>{ runBtn=true; bRun.classList.add('on'); e.preventDefault(); });
+['pointerup','pointercancel','pointerleave'].forEach(ev=>bRun.addEventListener(ev, ()=>{ runBtn=false; bRun.classList.remove('on'); }));
+$('bAct').addEventListener('pointerdown', e=>{ e.preventDefault(); if(S==='play') interact(); });
+$('bLight').addEventListener('pointerdown', e=>{ e.preventDefault(); if(S==='play') toggleFlash(); });
+$('bPause').addEventListener('pointerdown', e=>{ e.preventDefault(); if(S==='play') pause(); });
+
+$('btnStart').onclick = ()=>{ initAudio(); $('introText').textContent=INTRO; show('sIntro'); S='intro'; };
+$('btnHelp').onclick = ()=>show('sHelp');
+$('btnHelpBack').onclick = ()=>show('sTitle');
+$('btnIntro').onclick = ()=>startGame();
+$('btnResume').onclick = ()=>resume();
+$('btnRestart').onclick = ()=>startGame();
+$('btnToTitle').onclick = toTitle; $('btnOverTitle').onclick = toTitle;
+$('btnRetry').onclick = ()=>startGame();
+$('btnWinAgain').onclick = ()=>startGame();
+$('sNote').addEventListener('click', ()=>{ if(S==='note') closeNote(); });
+
+function toTitle(){ show('sTitle'); setState('title'); if(chaseGain) chaseGain.gain.value=0; }
+function startGame(){ initAudio(); newGame(); show(null); setState('play'); }
+function pause(){ show('sPause'); setState('pause'); }
+function resume(){ show(null); setState('play'); }
+function closeNote(){ show(null); setState('play'); }
+function toggleFlash(){ if(P.hidden) return; P.flash=!P.flash; noise(0.05,3000,2,0.2); }
+
+// ================= 互動 =================
+function nearbyInteract(){
+  if (P.hidden) return {txt:'[E] 離開藏身處', fn:()=>unhide()};
+  // gift desk
+  if (!P.gift && Math.hypot(P.x-(30*T+T/2), P.y-(6*T+T/2)) < 50)
+    return {txt:'[E] 把糖果放進抽屜', fn:deliverGift};
+  const ptx=Math.floor(P.x/T), pty=Math.floor(P.y/T);
+  let best=null, bd=1e9;
+  for (let y=pty-1;y<=pty+1;y++) for (let x=ptx-1;x<=ptx+1;x++){
+    const t=tile(x,y); if (![LR,LB,GATE,LOCKER,STALL].includes(t)) continue;
+    const d=Math.hypot(P.x-(x*T+T/2), P.y-(y*T+T/2)); if (d<46 && d<bd){ bd=d; best={x,y,t}; }
+  }
+  if (!best) return null;
+  const {x,y,t}=best;
+  if (t===LOCKER||t===STALL) return {txt: t===LOCKER?'[E] 躲進置物櫃':'[E] 躲進隔間', fn:()=>hide(x,y)};
+  if (t===LR) return P.red ? {txt:'[E] 用紅鑰匙開門', fn:()=>unlock(x,y,'教務處的門開了。')} : {txt:'鎖住了（需要紅色鑰匙）', fn:()=>{sfx.locked();showMsg('門鎖住了。門牌寫著「教務處」。',2);}};
+  if (t===LB) return P.blue ? {txt:'[E] 用藍鑰匙開門', fn:()=>unlock(x,y,'圖書館的門吱呀一聲打開了……裡面好冷。')} : {txt:'鎖住了（需要藍色鑰匙）', fn:()=>{sfx.locked();showMsg('圖書館的門鎖住了。門縫裡吹出冷風。',2);}};
+  if (t===GATE) return P.gold ? {txt:'[E] 打開正門逃出去', fn:winGame} : {txt:'正門被鎖住了', fn:()=>{sfx.locked();showMsg(P.gift?'沉重的鐵門紋絲不動。需要正門鑰匙。':'正門……什麼時候鎖上的？',2.5);}};
+  return null;
+}
+function interact(){ const it=nearbyInteract(); if (it) it.fn(); }
+function unlock(x,y,txt){ map[y][x]=DOOR; sfx.door(); showMsg(txt,3); }
+function hide(x,y){
+  const spotted = G.active && G.state==='chase' && guardSees(true);
+  P.hidden={x,y,px:P.x,py:P.y}; game.hides++; sfx.hide();
+  if (spotted){ G.seenHide=true; G.state='grab'; G.path=pathToAdj(x,y); }
+}
+function unhide(){ const h=P.hidden; P.hidden=null; P.x=h.px; P.y=h.py; sfx.hide(); }
+function pathToAdj(x,y){
+  let best=null;
+  for (const [ox,oy] of [[0,1],[0,-1],[1,0],[-1,0]]){
+    const p=findPath(Math.floor(G.x/T),Math.floor(G.y/T),x+ox,y+oy);
+    if (p && (!best || p.length<best.length)) best=p;
+  }
+  return best||[];
+}
+function deliverGift(){
+  P.gift=true; sfx.pick(); const gid=game;
+  showMsg('你把糖果輕輕放進她的抽屜。',3);
+  setTimeout(()=>{ if(game!==gid||S==='over'||S==='win') return; sfx.slam(); shake=0.6; showMsg('──砰！遠處傳來鐵門重重關上的聲音。',3.5); }, 2600);
+  setTimeout(()=>{ if(game===gid&&!game.lockdown&&S!=='over'&&S!=='win'){ game.lockdown=true; sfx.bell(); G.active=true; G.state='patrol'; G.path=[]; GH.active=true; showMsg('……有腳步聲。拖著鑰匙串的聲音，越來越近。',4); showMsg('（被看見就快跑，躲進置物櫃甩掉他。）',4); } }, 5200);
+}
+
+// ================= 管理員 AI =================
+function guardSees(strict){
+  if (!G.active || P.hidden) return false;
+  const d=Math.hypot(P.x-G.x,P.y-G.y);
+  if (d<40) return los(G.x,G.y,P.x,P.y);
+  const range = P.flash ? 270 : 190;
+  if (d>range) return false;
+  const ad=Math.abs(angDiff(Math.atan2(P.y-G.y,P.x-G.x), G.a));
+  if (ad > (strict?0.9:0.75)) return false;
+  return los(G.x,G.y,P.x,P.y);
+}
+function setPath(tx,ty){ const p=findPath(Math.floor(G.x/T),Math.floor(G.y/T),tx,ty); G.path=p||[]; return !!p; }
+function follow(spd,dt){
+  if (!G.path.length) return true;
+  const n=G.path[0], tx=n[0]*T+T/2, ty=n[1]*T+T/2, dx=tx-G.x, dy=ty-G.y, d=Math.hypot(dx,dy), st=spd*dt;
+  if (d<=st){ G.x=tx; G.y=ty; G.path.shift(); return !G.path.length; }
+  G.x+=dx/d*st; G.y+=dy/d*st; G.ta=Math.atan2(dy,dx); G.moving=true; return false;
+}
+function updateGuard(dt){
+  if (!G.active) return;
+  G.moving=false;
+  const d=Math.hypot(P.x-G.x,P.y-G.y);
+  const seen = G.state!=='grab' && guardSees(false);
+  if (seen){
+    G.sus += dt*(d<130?4:2.2);
+    if (G.state!=='chase' && G.sus>0.25){ G.ta=Math.atan2(P.y-G.y,P.x-G.x); }
+    if (G.state!=='chase' && G.sus>=1){
+      G.state='chase'; sfx.chase(); shake=0.3; showMsg('「誰在那裡！」',2);
+    }
+    if (G.state==='chase') G.last={x:P.x,y:P.y};
+  } else {
+    G.sus=Math.max(0,G.sus-dt*0.4);
+  }
+  // 手電筒光被看到
+  if (!seen && P.flash && !P.hidden && G.state!=='chase' && G.state!=='grab' && d<380){
+    const inBeam=Math.abs(angDiff(Math.atan2(G.y-P.y,G.x-P.x),P.a))<0.55;
+    if (inBeam && los(G.x,G.y,P.x,P.y)){ G.sus=Math.min(0.9,G.sus+dt*0.8); if(G.state!=='investigate'){ G.state='investigate'; setPath(Math.floor(P.x/T),Math.floor(P.y/T)); } }
+  }
+  // 聽覺
+  if (!P.hidden && P.moving && G.state!=='chase' && G.state!=='grab'){
+    if ((P.running && d<250) || d<70){ G.state='investigate'; G.sus=Math.max(G.sus,0.3); setPath(Math.floor(P.x/T),Math.floor(P.y/T)); }
+  }
+  // 調查中看到但還不確定
+  if (seen && G.sus>0.25 && G.state==='patrol'){ G.state='investigate'; setPath(Math.floor(P.x/T),Math.floor(P.y/T)); }
+
+  switch (G.state){
+    case 'patrol': {
+      if (!G.path.length){
+        for (let i=0;i<WP.length;i++){ G.wi=(G.wi+1)%WP.length; if (setPath(WP[G.wi][0],WP[G.wi][1]) && G.path.length) break; }
+      }
+      follow(62,dt); break;
+    }
+    case 'investigate': {
+      if (follow(85,dt)){ G.state='search'; G.timer=3.5; G.a0=G.a; }
+      break;
+    }
+    case 'chase': {
+      G.repath-=dt;
+      if (seen){
+        if (G.repath>1) G.repath=0;
+        if (d<70 && los(G.x,G.y,P.x,P.y)){
+          const sp=118*dt; moveEnt(G,(P.x-G.x)/d*sp,(P.y-G.y)/d*sp,10); G.ta=Math.atan2(P.y-G.y,P.x-G.x); G.moving=true; G.path=[];
+        } else {
+          if (G.repath<=0){ setPath(Math.floor(P.x/T),Math.floor(P.y/T)); G.repath=0.3; }
+          follow(118,dt);
+        }
+        if (d<22) return caught('guard');
+      } else {
+        if (G.repath<=0 && G.last){ setPath(Math.floor(G.last.x/T),Math.floor(G.last.y/T)); G.repath=99; G.lostT=0; }
+        if (follow(112,dt)){
+          G.state='search'; G.timer=4; G.a0=G.a; G.sus=0.5; showMsg('「……跑去哪了？」',2);
+          if (P.hidden && Math.hypot(P.hidden.x*T+T/2-G.x,P.hidden.y*T+T/2-G.y)<75 && Math.random()<0.5){
+            G.state='grab'; G.path=pathToAdj(P.hidden.x,P.hidden.y);
+          }
+        }
+      }
+      break;
+    }
+    case 'search': {
+      G.timer-=dt; G.ta=G.a0+Math.sin(game.time*2.2)*1.6;
+      if (G.timer<=0){ G.state='patrol'; G.path=[]; }
+      break;
+    }
+    case 'grab': {
+      if (!P.hidden){ G.state='chase'; G.last={x:P.x,y:P.y}; G.repath=0; break; }
+      if (follow(120,dt)){ G.ta=Math.atan2(P.hidden.y*T+T/2-G.y,P.hidden.x*T+T/2-G.x); return caught('guard'); }
+      break;
+    }
+  }
+  G.a += angDiff(G.ta,G.a)*Math.min(1,dt*7);
+  // 腳步聲
+  if (G.moving){
+    G.stepT-=dt;
+    if (G.stepT<=0){ G.stepT=G.state==='chase'?0.3:0.5; const v=Math.max(0,1-d/520); if(v>0) sfx.gstep(v); }
+  }
+}
+
+// ================= 幽靈 =================
+function updateGhost(dt){
+  if (!GH.active) return;
+  GH.t+=dt;
+  if (GH.respawn>0){ GH.respawn-=dt; if(GH.respawn<=0){ GH.x=LIB.x0+T*2+Math.random()*(LIB.x1-LIB.x0-T*4); GH.y=LIB.y0+T*2+Math.random()*(LIB.y1-LIB.y0-T*4); } return; }
+  const inLib = !P.hidden && P.x>LIB.x0 && P.x<LIB.x1 && P.y>LIB.y0 && P.y<LIB.y1;
+  const d=Math.hypot(P.x-GH.x,P.y-GH.y);
+  let tx=GH.tx, ty=GH.ty, sp=28;
+  if (inLib && d<T*8){ tx=P.x; ty=P.y; sp = d<T*3 ? 58 : 42; }
+  else if (Math.hypot(tx-GH.x,ty-GH.y)<10){ GH.tx=LIB.x0+T+Math.random()*(LIB.x1-LIB.x0-T*2); GH.ty=LIB.y0+T+Math.random()*(LIB.y1-LIB.y0-T*2); }
+  const dx=tx-GH.x, dy=ty-GH.y, dd=Math.hypot(dx,dy)||1;
+  GH.x+=dx/dd*sp*dt; GH.y+=dy/dd*sp*dt;
+  GH.x=Math.max(LIB.x0+8,Math.min(LIB.x1-8,GH.x)); GH.y=Math.max(LIB.y0+8,Math.min(LIB.y1-8,GH.y));
+  if (inLib && d<T*5){ GH.whisperT-=dt; if(GH.whisperT<=0){ GH.whisperT=3+Math.random()*3; sfx.whisper(); } }
+  if (inLib && d<20 && P.inv<=0){
+    hurt('「……你，是來找我的嗎？」');
+    GH.respawn=6;
+  }
+}
+function hurt(text){
+  P.hp--; P.inv=2.2; flash=1; flashCol='200,0,0'; shake=0.5; sfx.hurt(); showMsg(text,2.5);
+  if (P.hp<=0) caught('ghost');
+}
+
+// ================= 結束 =================
+function caught(by){
+  if (S!=='play') return;
+  game.caughtBy=by; setState('over'); flash=1; flashCol='120,0,0'; shake=1; sfx.scream();
+  if (chaseGain) chaseGain.gain.setTargetAtTime(0,AC.currentTime,0.3);
+  $('overTitle').textContent = by==='guard' ? '被抓到了' : '被帶走了';
+  $('overText').textContent = by==='guard'
+    ? '粗糙的手抓住了你的肩膀。\n「我說過了……任何人都不准留下。」'
+    : '冰冷的手指覆上你的眼睛。\n「你也……陪我一起等吧。」';
+  setTimeout(()=>show('sOver'),1300);
+}
+function winGame(){
+  setState('win'); sfx.door(); sfx.win();
+  if (chaseGain) chaseGain.gain.setTargetAtTime(0,AC.currentTime,0.3);
+  const m=Math.floor(game.time/60), s=Math.floor(game.time%60);
+  let txt='鐵門打開，夜風灌了進來。\n你頭也不回地跑出校門。\n\n';
+  if (game.notes>=6) txt+='身後，圖書館的窗邊，似乎有人在對你揮手。\n「謝謝你……幫她把糖果送到了。」\n\n【真結局】\n\n';
+  else txt+='明天早上，她會發現抽屜裡的糖果吧。\n至於這所學校的秘密……也許下次再說。\n\n';
+  txt+=`通關時間 ${m}分${String(s).padStart(2,'0')}秒　｜　筆記 ${game.notes}/6　｜　躲藏 ${game.hides} 次`;
+  $('winText').textContent=txt;
+  setTimeout(()=>show('sWin'),600);
+}
+
+// ================= 更新 =================
+function update(dt){
+  game.time+=dt;
+  // 移動輸入
+  let ix=0, iy=0;
+  if (keys['a']||keys['arrowleft']) ix-=1; if (keys['d']||keys['arrowright']) ix+=1;
+  if (keys['w']||keys['arrowup']) iy-=1; if (keys['s']||keys['arrowdown']) iy+=1;
+  ix+=touchMove.x; iy+=touchMove.y;
+  let il=Math.hypot(ix,iy); if (il>1){ ix/=il; iy/=il; il=1; }
+  P.moving=false; P.running=false;
+  if (!P.hidden && il>0.15){
+    const wantRun = (keys['shift']||runBtn) && !P.tired;
+    const spd = (wantRun?160:92)*il;
+    moveEnt(P,ix*spd*dt,iy*spd*dt,10);
+    P.moving=true; P.running=wantRun;
+    if (!mouse.active) P.a += angDiff(Math.atan2(iy,ix),P.a)*Math.min(1,dt*10);
+  }
+  if (mouse.active && !P.hidden){
+    const cam=camera(); const wx=mouse.x/SC+cam.x, wy=mouse.y/SC+cam.y; P.a=Math.atan2(wy-P.y,wx-P.x);
+  }
+  if (P.running){ P.st-=24*dt; if(P.st<=0){ P.st=0; P.tired=true; } }
+  else { P.st=Math.min(100,P.st+(P.hidden?22:14)*dt); if(P.tired&&P.st>35) P.tired=false; }
+  if (P.moving){ P.stepT-=dt; if(P.stepT<=0){ P.stepT=P.running?0.27:0.42; sfx.step(P.running?1:0.6); } }
+  if (P.inv>0) P.inv-=dt;
+
+  // 撿東西
+  if (!P.hidden) for (const it of items){
+    if (it.taken || Math.hypot(P.x-it.px,P.y-it.py)>22) continue;
+    if (it.k==='candy'){
+      if (P.hp>=3){ if(!game.candyHint){ game.candyHint=true; showMsg('一顆白色糖果。（現在還不需要，先留著吧）',2.5);} continue; }
+      it.taken=true; P.hp++; sfx.pick(); showMsg('你吃了一顆白色糖果，甜味讓你冷靜了一點。（♥+1）',2.8);
+    } else if (it.k==='note'){
+      it.taken=true; game.notes++; sfx.pick();
+      $('noteTitle').textContent=NOTES[it.id].t; $('noteBody').innerHTML=NOTES[it.id].b; show('sNote'); setState('note'); return;
+    } else {
+      if (!P.gift) continue;
+      it.taken=true; P[it.k]=true; sfx.key();
+      if (it.k==='red') showMsg('找到一把繫著紅繩的鑰匙。吊牌上寫著「教務處」。',3.5);
+      if (it.k==='blue') showMsg('抽屜裡有一把藍色鑰匙──「圖書館」。',3.5);
+      if (it.k==='gold'){
+        showMsg('沉甸甸的黃銅鑰匙。是正門的！',3);
+        showMsg('……整座校舍的燈，同時閃了一下。',3);
+        game.flicker=0.6; sfx.slam();
+        if (G.active){ G.state='investigate'; setPath(10,15); }
+      }
+    }
+  }
+
+  updateGuard(dt); if (S!=='play') return;
+  updateGhost(dt); if (S!=='play') return;
+
+  // 房間名
+  const r=roomAt(P.hidden?P.hidden.px:P.x, P.hidden?P.hidden.py:P.y);
+  if (r && r!==lastRoom){
+    lastRoom=r; $('room').textContent=r.n; $('room').style.opacity=1; roomT=2.2;
+    if (r.n==='圖書館' && !game.libVisited){ game.libVisited=true; showMsg('書架之間……好像有人站著。',3); }
+  }
+  if (roomT>0){ roomT-=dt; if(roomT<=0) $('room').style.opacity=0; }
+
+  // 驚嚇事件
+  if (game.lockdown){
+    game.scareT-=dt;
+    if (game.scareT<=0){
+      game.scareT=35+Math.random()*40;
+      const k=Math.floor(Math.random()*3);
+      if (k===0){ game.flicker=0.5; noise(0.4,4000,1,0.2,'highpass'); }
+      else if (k===1){ sfx.piano(); if(lastRoom&&lastRoom.n!=='音樂教室') showMsg('……遠處傳來斷斷續續的鋼琴聲。',3); }
+      else { sfx.whisper(); showMsg('「……你帶糖果來了嗎？」',2.5); }
+    }
+  }
+  if (game.flicker>0) game.flicker-=dt;
+
+  // 心跳 & 追逐音樂
+  if (G.active){
+    const d=Math.hypot(P.x-G.x,P.y-G.y);
+    const chasing=G.state==='chase'||G.state==='grab';
+    if (chaseGain) chaseGain.gain.setTargetAtTime(chasing?0.09:0, AC.currentTime, 0.5);
+    if (chasing || d<300){
+      G.heartT=(G.heartT||0)-dt;
+      if (G.heartT<=0){ G.heartT = chasing?0.42:0.55+d/300*0.6; sfx.heart(chasing?1:Math.max(0.3,1-d/300)); }
+    }
+  }
+
+  // 互動提示
+  const it=nearbyInteract();
+  const pr=$('prompt');
+  if (it){ pr.textContent=isTouch?it.txt.replace('[E] ',''):it.txt; pr.style.display='block'; } else pr.style.display='none';
+
+  // 訊息佇列
+  const m=$('msg');
+  if (msgT>0){ msgT-=dt; if(msgT<=0) m.style.opacity=0; }
+  else if (msgQ.length && msgT<=0){ const [t,d]=msgQ.shift(); m.textContent=t; m.style.opacity=1; msgT=d; }
+}
+
+// ================= 繪圖 =================
+function camera(){
+  const fx = P.hidden ? P.hidden.x*T+T/2 : P.x, fy = P.hidden ? P.hidden.y*T+T/2 : P.y;
+  let x=fx-CW/SC/2, y=fy-CH/SC/2;
+  if (shake>0){ x+=(Math.random()-0.5)*shake*14; y+=(Math.random()-0.5)*shake*14; }
+  return {x,y};
+}
+function rayPoly(ox,oy,ang,fov,range,n,step){
+  const pts=[];
+  for (let i=0;i<=n;i++){
+    const a=ang-fov/2+fov*i/n, cx=Math.cos(a), cy=Math.sin(a);
+    let r=step;
+    while (r<range && !opaqueAt(ox+cx*r, oy+cy*r)) r+=step;
+    if (r<range) r=Math.min(range,r+9);
+    pts.push(ox+cx*r, oy+cy*r);
+  }
+  return pts;
+}
+function fillPoly(c,ox,oy,pts,full){
+  c.beginPath();
+  if (full){ c.moveTo(pts[0],pts[1]); } else { c.moveTo(ox,oy); c.lineTo(pts[0],pts[1]); }
+  for (let i=2;i<pts.length;i+=2) c.lineTo(pts[i],pts[i+1]);
+  c.closePath(); c.fill();
+}
+const FLOORC = {[F_HALL]:['#3a3d42','#35383d'],[F_WOOD]:['#47372a','#423327'],[F_OFF]:['#3b3934','#37352f'],[F_CARPET]:['#3d222b','#391f28'],[F_TILE]:['#4b5257','#454c51']};
+function drawTile(x,y){
+  const t=map[y][x], px=x*T, py=y*T;
+  if (t===WL){
+    ctx.fillStyle='#17141b'; ctx.fillRect(px,py,T,T);
+    if (y+1<H && map[y+1][x]!==WL){ ctx.fillStyle='#2b2631'; ctx.fillRect(px,py+T-12,T,12); ctx.fillStyle='#3a3340'; ctx.fillRect(px,py+T-12,T,2); }
+    return;
+  }
+  const fc=FLOORC[flo[y][x]]||FLOORC[F_HALL];
+  ctx.fillStyle=fc[(x+y)&1]; ctx.fillRect(px,py,T,T);
+  if (flo[y][x]===F_WOOD){ ctx.fillStyle='rgba(0,0,0,.18)'; ctx.fillRect(px,py+((x*7)%T),T,1); ctx.fillRect(px,py+((x*7+16)%T),T,1); }
+  else if (flo[y][x]===F_TILE){ ctx.strokeStyle='rgba(0,0,0,.25)'; ctx.strokeRect(px+.5,py+.5,T-1,T-1); }
+  switch(t){
+    case DOOR: ctx.fillStyle='#2a1d14'; ctx.fillRect(px,py,T,4); ctx.fillRect(px,py+T-4,T,4); break;
+    case LR: case LB: {
+      ctx.fillStyle=t===LR?'#5a1d1d':'#1f2d55'; ctx.fillRect(px+1,py+2,T-2,T-4);
+      ctx.fillStyle='rgba(255,255,255,.08)'; ctx.fillRect(px+3,py+4,T-6,3);
+      ctx.fillStyle='#c9a34a'; ctx.beginPath(); ctx.arc(px+T/2,py+T/2,3,0,7); ctx.fill(); break;
+    }
+    case GATE: ctx.fillStyle='#262018'; ctx.fillRect(px,py,T,T); ctx.fillStyle='#8a7238';
+      for(let i=3;i<T;i+=6) ctx.fillRect(px+i,py+2,2,T-4); ctx.fillRect(px,py+6,T,2); break;
+    case LOCKER: ctx.fillStyle='#3d4a55'; ctx.fillRect(px+2,py+1,T-4,T-2); ctx.fillStyle='#2b353e';
+      for(let i=0;i<4;i++) ctx.fillRect(px+8,py+6+i*4,T-16,2); ctx.fillStyle='#8a9aa6'; ctx.fillRect(px+T-9,py+T/2,3,5); break;
+    case STALL: ctx.fillStyle='#6a6e6a'; ctx.fillRect(px+1,py+2,T-2,T-4); ctx.fillStyle='#555955'; ctx.fillRect(px+T/2-1,py+2,2,T-4); break;
+    case DESK: ctx.fillStyle='#5a4330'; ctx.fillRect(px+3,py+6,T-6,T-14); ctx.fillStyle='#6d5440'; ctx.fillRect(px+3,py+6,T-6,4);
+      ctx.fillStyle='#2e2a26'; ctx.fillRect(px+9,py+T-7,T-18,5);
+      if (x===30&&y===6&&!P.gift){ ctx.fillStyle='rgba(255,190,220,.35)'; ctx.fillRect(px+3,py+6,T-6,T-14); }
+      break;
+    case TDESK: ctx.fillStyle='#4f3c2c'; ctx.fillRect(px,py+4,T,T-8); ctx.fillStyle='#614a37'; ctx.fillRect(px,py+4,T,3);
+      if ((x*3+y)%4===0){ ctx.fillStyle='#ccc5b0'; ctx.fillRect(px+6,py+10,10,8); } break;
+    case SHELF: ctx.fillStyle='#2e2018'; ctx.fillRect(px,py+2,T,T-4);
+      for(let i=0;i<7;i++){ ctx.fillStyle=['#6a2a2a','#2a4a3a','#4a3a6a','#7a6a3a','#3a3a3a'][(x*5+y*3+i)%5]; ctx.fillRect(px+2+i*4,py+5,3,T-10); } break;
+    case PIANO: ctx.fillStyle='#0d0d10'; ctx.fillRect(px,py+2,T,T-4); ctx.fillStyle='#ddd'; ctx.fillRect(px,py+T-10,T,6);
+      ctx.fillStyle='#111'; for(let i=3;i<T;i+=5) ctx.fillRect(px+i,py+T-10,2,4); break;
+    case CHAIR: ctx.fillStyle='#4a3a2c'; ctx.fillRect(px+8,py+8,T-16,T-16); ctx.fillStyle='#3a2c20'; ctx.fillRect(px+8,py+6,T-16,4); break;
+    case SINK: ctx.fillStyle='#a8adb0'; ctx.fillRect(px+4,py+4,T-8,T-8); ctx.fillStyle='#6d7477'; ctx.beginPath(); ctx.ellipse(px+T/2,py+T/2,7,5,0,0,7); ctx.fill(); break;
+  }
+}
+function drawItem(it){
+  const x=it.px, y=it.py+Math.sin(game.time*3+x)*1.5;
+  if (it.k==='candy'){ ctx.fillStyle='#f4f1ea'; ctx.beginPath(); ctx.ellipse(x,y,5,4,0,0,7); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(x-5,y); ctx.lineTo(x-10,y-4); ctx.lineTo(x-10,y+4); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(x+5,y); ctx.lineTo(x+10,y-4); ctx.lineTo(x+10,y+4); ctx.fill(); }
+  else if (it.k==='note'){ ctx.save(); ctx.translate(x,y); ctx.rotate(0.2); ctx.fillStyle='#d9d0b8'; ctx.fillRect(-6,-8,12,16);
+    ctx.fillStyle='#6a5a48'; for(let i=0;i<4;i++) ctx.fillRect(-4,-5+i*3.5,8,1); ctx.restore(); }
+  else { if (!P.gift) return; const c={red:'#d33',blue:'#47f',gold:'#e5b830'}[it.k];
+    ctx.strokeStyle=c; ctx.fillStyle=c; ctx.lineWidth=2.5; ctx.beginPath(); ctx.arc(x-4,y,4,0,7); ctx.stroke();
+    ctx.fillRect(x,y-1.2,9,2.4); ctx.fillRect(x+6,y,2,4); ctx.fillRect(x+3,y,2,3); }
+}
+function drawPerson(x,y,a,body,hair,size,cap){
+  ctx.save(); ctx.translate(x,y);
+  ctx.fillStyle='rgba(0,0,0,.4)'; ctx.beginPath(); ctx.ellipse(2,3,size+2,size,0,0,7); ctx.fill();
+  ctx.rotate(a);
+  ctx.fillStyle=body; ctx.beginPath(); ctx.ellipse(0,0,size*0.8,size*1.05,0,0,7); ctx.fill();
+  ctx.fillStyle='#d9b99b'; ctx.fillRect(size*0.4,size*0.35,size*0.7,3);
+  ctx.fillStyle='#222'; ctx.fillRect(size*0.9,size*0.25,6,5);
+  ctx.fillStyle=hair; ctx.beginPath(); ctx.arc(0,0,size*0.6,0,7); ctx.fill();
+  if (cap){ ctx.fillStyle='#1c1d16'; ctx.beginPath(); ctx.arc(0,0,size*0.62,0,7); ctx.fill(); ctx.fillRect(size*0.3,-size*0.45,size*0.6,size*0.9); }
+  ctx.restore();
+}
+function drawGhost(alpha){
+  const x=GH.x, y=GH.y+Math.sin(GH.t*2)*2;
+  ctx.save(); ctx.globalAlpha=alpha;
+  const g=ctx.createRadialGradient(x,y,2,x,y,40); g.addColorStop(0,'rgba(200,220,255,.35)'); g.addColorStop(1,'rgba(200,220,255,0)');
+  ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,40,0,7); ctx.fill();
+  ctx.fillStyle='#e8ecf2'; ctx.beginPath(); ctx.moveTo(x-10,y+14); ctx.quadraticCurveTo(x-12,y-6,x,y-8); ctx.quadraticCurveTo(x+12,y-6,x+10,y+14);
+  for(let i=0;i<4;i++) ctx.lineTo(x+10-i*5-2.5,y+11+(i%2)*4); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#050505'; ctx.beginPath(); ctx.ellipse(x,y-8,8,9,0,0,7); ctx.fill();
+  ctx.fillRect(x-8,y-8,3,18+Math.sin(GH.t*3)*2); ctx.fillRect(x+5,y-8,3,18+Math.cos(GH.t*3)*2);
+  ctx.restore();
+}
+
+function render(){
+  const cam=camera();
+  ctx.setTransform(1,0,0,1,0,0); ctx.fillStyle='#000'; ctx.fillRect(0,0,cvs.width,cvs.height);
+  const k=DPR*SC;
+  ctx.setTransform(k,0,0,k,-cam.x*k,-cam.y*k);
+  const x0=Math.max(0,Math.floor(cam.x/T)-1), y0=Math.max(0,Math.floor(cam.y/T)-1);
+  const x1=Math.min(W-1,Math.ceil((cam.x+CW/SC)/T)+1), y1=Math.min(H-1,Math.ceil((cam.y+CH/SC)/T)+1);
+  for (let y=y0;y<=y1;y++) for (let x=x0;x<=x1;x++) drawTile(x,y);
+  for (const it of items) if (!it.taken) drawItem(it);
+  if (G.active) drawPerson(G.x,G.y,G.a,'#34362a','#1c1d16',13,true);
+  if (!P.hidden && !(P.inv>0 && Math.floor(game.time*10)%2)) drawPerson(P.x,P.y,P.a,'#1e2a44','#14100c',10,false);
+
+  // ===== 黑暗 =====
+  dctx.setTransform(1,0,0,1,0,0); dctx.globalCompositeOperation='source-over';
+  dctx.fillStyle = game.lockdown ? 'rgba(2,2,6,.975)' : 'rgba(4,4,12,.93)';
+  dctx.fillRect(0,0,dk.width,dk.height);
+  dctx.setTransform(k,0,0,k,-cam.x*k,-cam.y*k);
+  dctx.globalCompositeOperation='destination-out';
+  const flick = game.flicker>0 && Math.random()<0.6;
+  const ox = P.hidden ? P.hidden.x*T+T/2 : P.x, oy = P.hidden ? P.hidden.y*T+T/2 : P.y;
+  // 周圍微光
+  { const R=P.hidden?40:(P.flash?62:78); const pts=rayPoly(ox,oy,0,Math.PI*2,R,48,4);
+    const g=dctx.createRadialGradient(ox,oy,0,ox,oy,R); g.addColorStop(0,'rgba(0,0,0,'+(P.flash?0.85:0.6)+')'); g.addColorStop(1,'rgba(0,0,0,0)');
+    dctx.fillStyle=g; fillPoly(dctx,ox,oy,pts,true); }
+  let lightPts=null;
+  if (P.flash && !P.hidden && !flick){
+    const R=310; lightPts=rayPoly(P.x,P.y,P.a,1.05,R,80,3);
+    const g=dctx.createRadialGradient(P.x,P.y,0,P.x,P.y,R);
+    g.addColorStop(0,'rgba(0,0,0,1)'); g.addColorStop(0.6,'rgba(0,0,0,.9)'); g.addColorStop(1,'rgba(0,0,0,0)');
+    dctx.fillStyle=g; fillPoly(dctx,P.x,P.y,lightPts,false);
+  }
+  if (G.active && !flick){
+    const R=240, pts=rayPoly(G.x,G.y,G.a,0.85,R,40,4);
+    const g=dctx.createRadialGradient(G.x,G.y,0,G.x,G.y,R);
+    g.addColorStop(0,'rgba(0,0,0,.85)'); g.addColorStop(1,'rgba(0,0,0,0)');
+    dctx.fillStyle=g; fillPoly(dctx,G.x,G.y,pts,false);
+    const g2=dctx.createRadialGradient(G.x,G.y,0,G.x,G.y,30); g2.addColorStop(0,'rgba(0,0,0,.6)'); g2.addColorStop(1,'rgba(0,0,0,0)');
+    dctx.fillStyle=g2; dctx.beginPath(); dctx.arc(G.x,G.y,30,0,7); dctx.fill();
+  }
+  ctx.setTransform(1,0,0,1,0,0); ctx.drawImage(dk,0,0);
+  ctx.setTransform(k,0,0,k,-cam.x*k,-cam.y*k);
+  // 暖色光
+  if (lightPts){ ctx.globalCompositeOperation='lighter';
+    const g=ctx.createRadialGradient(P.x,P.y,0,P.x,P.y,310); g.addColorStop(0,'rgba(255,210,140,.10)'); g.addColorStop(1,'rgba(255,210,140,0)');
+    ctx.fillStyle=g; fillPoly(ctx,P.x,P.y,lightPts,false); ctx.globalCompositeOperation='source-over'; }
+  // 閃光提示 (鑰匙/禮物)
+  const glim=(x,y,c)=>{ const d=Math.hypot(x-ox,y-oy); if(d>T*9||!los(ox,oy,x,y)) return;
+    const a=0.35+0.3*Math.sin(game.time*4); ctx.fillStyle=`rgba(${c},${a})`; ctx.beginPath(); ctx.arc(x,y,2.5,0,7); ctx.fill(); };
+  if (!P.gift) glim(30*T+T/2,6*T+T/2,'255,190,220');
+  else for (const it of items) if(!it.taken && ['red','blue','gold'].includes(it.k)) glim(it.px,it.py,'255,240,200');
+  // 幽靈（自己會發光）
+  if (GH.active && GH.respawn<=0){
+    const d=Math.hypot(GH.x-ox,GH.y-oy);
+    if (d<T*10 && (d<T*4 || los(ox,oy,GH.x,GH.y))){
+      let a=0.3+0.35*Math.abs(Math.sin(GH.t*1.3)); if (Math.random()<0.05) a=0.9; drawGhost(a);
+    }
+  }
+  // 管理員警覺符號
+  if (G.active && (G.sus>0.15 || G.state==='chase' || G.state==='grab')){
+    ctx.font='bold 18px sans-serif'; ctx.textAlign='center';
+    const ch=(G.state==='chase'||G.state==='grab'); ctx.fillStyle=ch?'#e22':'#eec';
+    ctx.fillText(ch?'!':'?', G.x, G.y-20);
+  }
+
+  // ===== 螢幕效果 =====
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  if (P.hidden){
+    ctx.fillStyle='rgba(0,0,0,.55)'; ctx.fillRect(0,0,CW,CH);
+    ctx.fillStyle='rgba(0,0,0,.85)'; for (let y=0;y<CH;y+=22) ctx.fillRect(0,y,CW,15);
+  }
+  const vg=ctx.createRadialGradient(CW/2,CH/2,Math.min(CW,CH)*0.3,CW/2,CH/2,Math.max(CW,CH)*0.75);
+  const chasing = G.active && (G.state==='chase'||G.state==='grab');
+  const pulse = chasing ? 0.25+0.15*Math.sin(game.time*9) : 0;
+  vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1, chasing?`rgba(90,0,0,${0.6+pulse})`:'rgba(0,0,0,.7)');
+  ctx.fillStyle=vg; ctx.fillRect(0,0,CW,CH);
+  if (P.hp===1){ ctx.fillStyle=`rgba(120,0,0,${0.12+0.08*Math.sin(game.time*4)})`; ctx.fillRect(0,0,CW,CH); }
+  if (flash>0){ ctx.fillStyle=`rgba(${flashCol},${flash*0.6})`; ctx.fillRect(0,0,CW,CH); }
+  // 顆粒
+  ctx.fillStyle='rgba(255,255,255,.035)';
+  for (let i=0;i<60;i++) ctx.fillRect(Math.random()*CW,Math.random()*CH,1.5,1.5);
+}
+
+// ================= 標題背景 =================
+function renderTitleBg(t){
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  ctx.fillStyle='#000'; ctx.fillRect(0,0,CW,CH);
+  const x=CW/2+Math.sin(t*0.4)*CW*0.25, y=CH*0.6+Math.cos(t*0.3)*40;
+  const g=ctx.createRadialGradient(x,y,0,x,y,Math.max(CW,CH)*0.4);
+  g.addColorStop(0,'rgba(255,220,160,.08)'); g.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=g; ctx.fillRect(0,0,CW,CH);
+}
+
+// ================= 主迴圈 =================
+let last=performance.now();
+function loop(now){
+  const dt=Math.min(0.05,(now-last)/1000); last=now;
+  if (S==='play'){ update(dt); }
+  if (shake>0) shake=Math.max(0,shake-dt*1.5);
+  if (flash>0) flash=Math.max(0,flash-dt*1.2);
+  if (P && (S==='play'||S==='pause'||S==='note'||S==='over'||S==='win')){ render(); if(S!=='over'&&S!=='win') updateHUD(); }
+  else renderTitleBg(now/1000);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
